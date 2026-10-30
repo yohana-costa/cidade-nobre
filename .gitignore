@@ -1,3 +1,13 @@
 node_modules/
 build/
+dist/
 .DS_Store
+*.log
+
+# Env (cada ambiente tem o seu; use .env.example como base)
+.env
+.env.*
+!.env.example
+
+# Vercel CLI
+.vercel

@@ -1,18 +1,47 @@
 {
-  "name": "cidade-nobre-prototipo",
-  "version": "1.0.0",
+  "name": "cidade-nobre",
+  "version": "2.0.0",
   "private": true,
-  "description": "Protótipo demonstrativo do ecossistema digital da Cidade Nobre — Barbearia Premium (SMG). Dados fictícios.",
-  "type": "module",
+  "description": "Cidade Nobre, Barbearia Premium: site com agendamento, Clube de fidelidade e gestão da barbearia.",
   "scripts": {
-    "build": "python3 build.py",
-    "dev": "python3 -m http.server 8000",
+    "postinstall": "prisma generate",
+    "build": "node scripts/build.mjs",
+    "vercel-build": "prisma migrate deploy && node scripts/build.mjs",
+    "dev": "node scripts/servidor-dev.mjs",
+    "dev:api": "ts-node-dev --respawn --transpile-only backend/src/server.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "ts-node --transpile-only prisma/seed.ts",
+    "db:studio": "prisma studio",
     "test": "node testes/fluxos.mjs",
-    "test:dev": "node testes/fluxos.mjs --dev",
-    "test:datas": "node testes/datas.mjs",
-    "comparar": "node testes/comparar-referencias.mjs"
+    "test:api": "node testes/api.mjs"
+  },
+  "prisma": {
+    "seed": "ts-node --transpile-only prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^5.22.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "playwright": "^1.49.0"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.17.0",
+    "playwright": "^1.49.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

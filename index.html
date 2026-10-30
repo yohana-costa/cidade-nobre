@@ -3,23 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cidade Nobre — Barbearia Premium</title>
-<meta name="description" content="Cidade Nobre — Barbearia Premium. Serviços, agendamento online e Clube Cidade Nobre.">
+<title>Cidade Nobre, Barbearia Premium</title>
+<meta name="description" content="Cidade Nobre, Barbearia Premium. Serviços, agendamento online e Clube Cidade Nobre.">
 <meta name="theme-color" content="#0b0b0c">
-<link rel="icon" type="image/png" href="assets/fav.png">
-<link rel="apple-touch-icon" href="assets/touch.png">
-<link rel="preload" href="assets/fonts/newsreader.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" type="image/png" href="/assets/fav.png">
+<link rel="apple-touch-icon" href="/assets/touch.png">
+<link rel="preload" href="/assets/fonts/newsreader.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
 <!--
-  Site publicado: carrega src/ e assets/ como arquivos separados (melhor cache ao hospedar).
-  Sirva a pasta com qualquer servidor estático. Para o arquivo único de envio: python build.py
+  Fonte do site. Em desenvolvimento e servido como esta (npm run dev).
+  O build (npm run build) gera dist/ com os scripts juntos e nomes com hash para cache.
+  Caminhos absolutos (/assets, /src) porque o site tambem abre em /gestao e /indique/CODIGO.
 -->
 <style>
-@font-face{font-family:'Newsreader CN';font-style:normal;font-weight:200 800;font-display:swap;src:url(assets/fonts/newsreader.woff2) format('woff2');}
-@font-face{font-family:'Figtree CN';font-style:normal;font-weight:300 900;font-display:swap;src:url(assets/fonts/figtree.woff2) format('woff2');}
+@font-face{font-family:'Newsreader CN';font-style:normal;font-weight:200 800;font-display:swap;src:url(/assets/fonts/newsreader.woff2) format('woff2');}
+@font-face{font-family:'Figtree CN';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/figtree.woff2) format('woff2');}
 :root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;background:#0b0b0c}img{max-width:100%}[hidden]{display:none!important}
 </style>
-<link rel="stylesheet" href="src/styles.css">
+<link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
 <noscript><div style="padding:24px;font-family:system-ui,sans-serif;color:#f2e9db;background:#0b0b0c;min-height:100vh">Este site precisa de JavaScript. Abra no Chrome, Safari, Edge ou Firefox.</div></noscript>
@@ -27,26 +28,29 @@
 <div id="layer"></div>
 <div id="toast" class="toast-wrap" aria-live="polite"></div>
 <script>window.ASSETS = {
-  "crest": "assets/crest.webp",
-  "lockup": "assets/lockup.webp",
-  "crown_wm": "assets/crown_wm.webp",
-  "hero_home": "assets/hero_home.jpg",
-  "hero_servicos": "assets/hero_servicos.jpg",
-  "hero_agendar": "assets/hero_agendar.jpg",
-  "cat_cabelo": "assets/cat_cabelo.jpg",
-  "cat_barba": "assets/cat_barba.jpg",
-  "cat_cuidados": "assets/cat_cuidados.jpg",
-  "svc_corte": "assets/svc_corte.jpg",
-  "svc_barba": "assets/svc_barba.jpg",
-  "svc_penteado": "assets/svc_penteado.jpg",
-  "svc_manicure": "assets/svc_manicure.jpg",
-  "svc_nasal": "assets/svc_nasal.jpg",
-  "svc_sobrancelha": "assets/svc_sobrancelha.jpg"
+  "crest": "/assets/crest.webp",
+  "lockup": "/assets/lockup.webp",
+  "crown_wm": "/assets/crown_wm.webp",
+  "hero_home": "/assets/hero_home.jpg",
+  "hero_servicos": "/assets/hero_servicos.jpg",
+  "hero_agendar": "/assets/hero_agendar.jpg",
+  "cat_cabelo": "/assets/cat_cabelo.jpg",
+  "cat_barba": "/assets/cat_barba.jpg",
+  "cat_cuidados": "/assets/cat_cuidados.jpg",
+  "svc_corte": "/assets/svc_corte.jpg",
+  "svc_barba": "/assets/svc_barba.jpg",
+  "svc_penteado": "/assets/svc_penteado.jpg",
+  "svc_manicure": "/assets/svc_manicure.jpg",
+  "svc_nasal": "/assets/svc_nasal.jpg",
+  "svc_sobrancelha": "/assets/svc_sobrancelha.jpg"
 };</script>
-<script src="src/core.js"></script>
-<script src="src/icons.js"></script>
-<script src="src/client.js"></script>
-<script src="src/admin.js"></script>
-<script src="src/main.js"></script>
+<!-- build:js -->
+<script src="/src/api.js"></script>
+<script src="/src/core.js"></script>
+<script src="/src/icons.js"></script>
+<script src="/src/client.js"></script>
+<script src="/src/admin.js"></script>
+<script src="/src/main.js"></script>
+<!-- endbuild -->
 </body>
 </html>

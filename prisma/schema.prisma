@@ -1,0 +1,217 @@
+// Cidade Nobre: barbearia com agenda online e Clube de fidelidade.
+// Datas de agenda ficam como texto "AAAA-MM-DD" e horas como "HH:MM" (horario de Brasilia),
+// do mesmo jeito que a tela usa. Isso evita conversao de fuso em toda consulta.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+// Neon (integracao da Vercel): DATABASE_URL e a conexao com pool (usada pela API)
+// e DATABASE_URL_UNPOOLED a conexao direta (usada pelas migrations).
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// Equipe que entra na gestao (login com e-mail e senha).
+model Usuario {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  senha        String
+  perfil       String   @default("OPERADOR") // ADMIN | GERENTE | OPERADOR
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+// Regras do negocio que antes ficavam fixas no codigo. Linha unica (id = 1).
+model Configuracao {
+  id                   Int      @id @default(1)
+  pontosPorReal        Int      @default(1)
+  bonusIndicacao       Int      @default(50)
+  resgatePontos        Int      @default(250)
+  resgateValorCentavos Int      @default(2000)
+  horaAbertura         String   @default("09:00")
+  horaFechamento       String   @default("19:00")
+  diasFechados         Int[]    @default([0]) // 0 = domingo ... 6 = sabado
+  horarios             String[] @default(["10:00", "11:00", "13:30", "14:30", "16:00", "17:30"])
+  diasSemRetorno       Int      @default(45)
+  antecedenciaMinutos  Int      @default(20)
+  diasAgendamento      Int      @default(5)
+  dominioIndicacao     String   @default("")
+  inicioClube          String   @default("")
+  atualizadoEm         DateTime @updatedAt
+
+  @@map("configuracoes")
+}
+
+model Categoria {
+  id       String    @id // slug: cabelo, barba, cuidados
+  nome     String
+  ordem    Int       @default(0)
+  servicos Servico[]
+
+  @@map("categorias")
+}
+
+model Servico {
+  id             String                @id @default(uuid())
+  nome           String                @unique
+  descricao      String                @default("")
+  categoriaId    String
+  categoria      Categoria             @relation(fields: [categoriaId], references: [id])
+  duracaoMin     Int
+  precoCentavos  Int
+  imagem         String? // chave da imagem em assets/ (ex.: svc_corte)
+  visivel        Boolean               @default(true) // aparece no site para o cliente
+  ativo          Boolean               @default(true) // false = removido do catalogo (historico preservado)
+  ordem          Int                   @default(0)
+  profissionais  Profissional[]
+  itens          AgendamentoServico[]
+  criadoEm       DateTime              @default(now())
+  atualizadoEm   DateTime              @updatedAt
+
+  @@map("servicos")
+}
+
+model Profissional {
+  id           String        @id @default(uuid())
+  nome         String        @unique
+  ativo        Boolean       @default(true)
+  ordem        Int           @default(0)
+  servicos     Servico[]
+  agendamentos Agendamento[] @relation("ProfissionalAtende")
+  escolhidoEm  Agendamento[] @relation("ProfissionalEscolhido")
+  criadoEm     DateTime      @default(now())
+  atualizadoEm DateTime      @updatedAt
+
+  @@map("profissionais")
+}
+
+model Cliente {
+  id                  String            @id @default(uuid())
+  nome                String
+  telefone            String            @unique // so digitos, com DDD
+  email               String?
+  codigo              String            @unique // codigo do link de indicacao
+  senha               String? // conta do cliente (telefone + senha); nulo = sem conta
+  codigoAcesso        String? // hash do codigo de primeiro acesso gerado pela equipe
+  codigoAcessoExpira  DateTime?
+  criadoEm            DateTime          @default(now())
+  atualizadoEm        DateTime          @updatedAt
+  agendamentos        Agendamento[]
+  movimentos          MovimentoPontos[]
+  vouchers            Voucher[]
+  indicacoesFeitas    Indicacao[]       @relation("Indicador")
+  indicacaoRecebida   Indicacao?        @relation("Indicado")
+
+  @@map("clientes")
+}
+
+model Agendamento {
+  id                       String               @id @default(uuid())
+  clienteId                String
+  cliente                  Cliente              @relation(fields: [clienteId], references: [id])
+  profissionalId           String
+  profissional             Profissional         @relation("ProfissionalAtende", fields: [profissionalId], references: [id])
+  // profissional escolhido pelo cliente; nulo = "sem preferencia"
+  profissionalEscolhidoId  String?
+  profissionalEscolhido    Profissional?        @relation("ProfissionalEscolhido", fields: [profissionalEscolhidoId], references: [id])
+  data                     String               @db.VarChar(10)
+  hora                     String               @db.VarChar(5)
+  duracaoMin               Int
+  precoCentavos            Int
+  descontoCentavos         Int                  @default(0)
+  status                   String               @default("agendado") // agendado | confirmado | concluido | cancelado
+  origem                   String               @default("site") // site | balcao
+  observacao               String?
+  concluidoEm              DateTime?
+  criadoEm                 DateTime             @default(now())
+  atualizadoEm             DateTime             @updatedAt
+  itens                    AgendamentoServico[]
+  movimentos               MovimentoPontos[]
+  indicacaoLiberada        Indicacao?
+  voucherUsado             Voucher?
+
+  @@index([data, profissionalId])
+  @@index([clienteId])
+  @@map("agendamentos")
+}
+
+// Servicos do agendamento com nome, duracao e preco congelados no momento da reserva.
+model AgendamentoServico {
+  id             String      @id @default(uuid())
+  agendamentoId  String
+  agendamento    Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  servicoId      String
+  servico        Servico     @relation(fields: [servicoId], references: [id])
+  nome           String
+  duracaoMin     Int
+  precoCentavos  Int
+  ordem          Int         @default(0)
+
+  @@map("agendamento_servicos")
+}
+
+model Indicacao {
+  id            String       @id @default(uuid())
+  indicadorId   String
+  indicador     Cliente      @relation("Indicador", fields: [indicadorId], references: [id])
+  indicadoId    String       @unique
+  indicado      Cliente      @relation("Indicado", fields: [indicadoId], references: [id])
+  status        String       @default("pendente") // pendente | concluida
+  agendamentoId String?      @unique // atendimento que liberou os pontos
+  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id])
+  concluidaEm   DateTime?
+  criadoEm      DateTime     @default(now())
+  movimentos    MovimentoPontos[]
+
+  @@map("indicacoes")
+}
+
+model Voucher {
+  id                String       @id @default(uuid())
+  clienteId         String
+  cliente           Cliente      @relation(fields: [clienteId], references: [id])
+  titulo            String
+  valorCentavos     Int
+  custoPontos       Int
+  status            String       @default("disponivel") // disponivel | utilizado
+  agendamentoUsoId  String?      @unique
+  agendamentoUso    Agendamento? @relation(fields: [agendamentoUsoId], references: [id])
+  usadoEm           DateTime?
+  criadoEm          DateTime     @default(now())
+  movimentos        MovimentoPontos[]
+
+  @@index([clienteId, status])
+  @@map("vouchers")
+}
+
+// Extrato de pontos. O saldo do cliente e a soma dos pontos dele.
+// Os indices unicos garantem um credito por atendimento e por indicacao.
+model MovimentoPontos {
+  id            String       @id @default(uuid())
+  clienteId     String
+  cliente       Cliente      @relation(fields: [clienteId], references: [id])
+  tipo          String // servico | indicacao | resgate | ajuste
+  pontos        Int
+  agendamentoId String?
+  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id])
+  indicacaoId   String?
+  indicacao     Indicacao?   @relation(fields: [indicacaoId], references: [id])
+  voucherId     String?
+  voucher       Voucher?     @relation(fields: [voucherId], references: [id])
+  descricao     String?
+  criadoEm      DateTime     @default(now())
+
+  @@unique([tipo, agendamentoId])
+  @@unique([tipo, indicacaoId])
+  @@unique([tipo, voucherId])
+  @@index([clienteId])
+  @@map("movimentos_pontos")
+}
