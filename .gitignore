@@ -11,3 +11,6 @@ dist/
 
 # Vercel CLI
 .vercel
+
+# saida da compilacao da imagem Docker
+build/

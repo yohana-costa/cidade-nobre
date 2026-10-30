@@ -1,0 +1,59 @@
+# Deploy em VPS: Postgres proprio, API e site (nginx), tudo isolado na rede do projeto.
+# Segredos em .env (ver .env.example). O HTTPS fica num docker-compose.override.yml
+# que existe so na VPS (labels do Traefik), ver README.
+name: cidadenobre
+
+services:
+  cidadenobre-postgres:
+    image: postgres:16-alpine
+    container_name: cidadenobre_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cidade_nobre
+      POSTGRES_USER: cidadenobre
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - cidadenobre_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cidadenobre -d cidade_nobre"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cidadenobre_network
+
+  cidadenobre-api:
+    build:
+      context: .
+      target: api
+    container_name: cidadenobre_api
+    restart: unless-stopped
+    depends_on:
+      cidadenobre-postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      DATABASE_URL: postgresql://cidadenobre:${POSTGRES_PASSWORD}@cidadenobre-postgres:5432/cidade_nobre?schema=public&connect_timeout=30
+      DATABASE_URL_UNPOOLED: postgresql://cidadenobre:${POSTGRES_PASSWORD}@cidadenobre-postgres:5432/cidade_nobre?schema=public&connect_timeout=30
+    networks:
+      - cidadenobre_network
+
+  cidadenobre-web:
+    build:
+      context: .
+      target: web
+    container_name: cidadenobre_web
+    restart: unless-stopped
+    depends_on:
+      - cidadenobre-api
+    networks:
+      - cidadenobre_network
+
+volumes:
+  cidadenobre_postgres_data:
+
+networks:
+  cidadenobre_network:
+    driver: bridge

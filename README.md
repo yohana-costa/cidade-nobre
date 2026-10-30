@@ -158,3 +158,27 @@ npm test            # navegador (Chrome instalado): fluxo do cliente e da gestã
 
 - **2.0.0 (30/10/2026):** sistema real: API com banco PostgreSQL, conta do cliente, gestão com login, regras configuráveis, deploy na Vercel. Removidos os dados de demonstração.
 - **1.0.x (outubro/2026):** protótipo navegável só com front-end e dados fictícios.
+
+## Deploy em VPS (Docker)
+
+Além da Vercel, o projeto sobe em qualquer VPS com Docker. Está no ar em
+**https://cidadenobre.147-93-145-137.sslip.io** (VPS 147.93.145.137, EasyPanel + Traefik).
+
+- `docker-compose.yml` sobe Postgres próprio, API e site (nginx), sem porta exposta no host.
+  O nginx serve o site e repassa `/api` para a API, no mesmo domínio.
+- Na subida, a API aplica as migrations sozinha (`prisma migrate deploy`).
+- Segredos ficam em `.env` na VPS: `POSTGRES_PASSWORD` (só letras e números) e `JWT_SECRET`.
+- O HTTPS vem de um `docker-compose.override.yml` que existe só na VPS: coloca o
+  container `cidadenobre_web` na rede `easypanel` com as labels do Traefik.
+
+Pasta na VPS: `/root/apps/cidade-nobre`. Atualizar:
+
+```bash
+cd /root/apps/cidade-nobre && git pull && docker compose up -d --build
+```
+
+Seed (só na primeira vez; é idempotente):
+
+```bash
+docker exec cidadenobre_api node build/prisma/seed.js
+```
