@@ -1,0 +1,18 @@
+{
+  "name": "cidade-nobre-prototipo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Protótipo demonstrativo do ecossistema digital da Cidade Nobre — Barbearia Premium (SMG). Dados fictícios.",
+  "type": "module",
+  "scripts": {
+    "build": "python3 build.py",
+    "dev": "python3 -m http.server 8000",
+    "test": "node testes/fluxos.mjs",
+    "test:dev": "node testes/fluxos.mjs --dev",
+    "test:datas": "node testes/datas.mjs",
+    "comparar": "node testes/comparar-referencias.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
