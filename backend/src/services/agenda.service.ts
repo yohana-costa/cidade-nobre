@@ -175,7 +175,8 @@ async function aplicarIndicacao(tx: Tx, clienteId: string, codigo?: string | nul
  * - Telefone novo: cria o cadastro (e a conta, se informou senha).
  * - Telefone ja cadastrado sem login: agenda no cadastro existente sem mexer nos dados dele.
  */
-export async function agendarPublico(body: unknown, clienteLogadoId: string | null) {
+// cobranca: com pagamento online ligado, o horario fica reservado ate expiraEm aguardando o pagamento.
+export async function agendarPublico(body: unknown, clienteLogadoId: string | null, cobranca: { expiraEm: Date } | null = null) {
   const d = agendamentoPublicoSchema.parse(body);
   const senhaHash = d.password ? await bcrypt.hash(d.password, 10) : null;
   return prisma.$transaction(async (tx) => {
@@ -197,15 +198,20 @@ export async function agendarPublico(body: unknown, clienteLogadoId: string | nu
       }
     }
     await aplicarIndicacao(tx, cliente.id, d.referralCode);
+    const cobrar = !!cobranca && v.preco > 0;
     const a = await tx.agendamento.create({
       data: {
         clienteId: cliente.id, profissionalId: v.pro, profissionalEscolhidoId: d.proId === 'any' ? null : d.proId,
         data: d.date, hora: d.time, duracaoMin: v.dur, precoCentavos: v.preco, status: 'agendado', origem: 'site',
+        ...(cobrar ? { pagamentoStatus: 'pendente', pagamentoValorCentavos: v.preco, pagamentoExpiraEm: cobranca!.expiraEm } : {}),
         itens: { create: v.itens },
       },
       include: apptInclude,
     });
-    return { appt: apptView(a), clienteId: cliente.id, conta, senhaIgnorada: !!senhaHash && conta !== 'criada' && conta !== 'logado' };
+    return {
+      appt: apptView(a), clienteId: cliente.id, conta, senhaIgnorada: !!senhaHash && conta !== 'criada' && conta !== 'logado',
+      cliente: { nome: cliente.nome, email: cliente.email }, cobrar,
+    };
   });
 }
 
@@ -224,9 +230,17 @@ async function apptDoCliente(id: string, clienteId: string) {
   return a;
 }
 
+const mesmosServicos = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+
 export async function alterarDoCliente(id: string, clienteId: string, body: unknown) {
   const d = alterarSchema.parse(body);
-  await apptDoCliente(id, clienteId);
+  const atual = await apptDoCliente(id, clienteId);
+  if (atual.pagamentoStatus === 'pendente') throw falha(400, 'Conclua o pagamento deste horário antes de alterar, ou cancele e agende de novo.');
+  if (atual.pagamentoStatus === 'pago') {
+    // ja pago: pode trocar dia, hora e profissional, mas nao os servicos (o valor mudaria)
+    const itens = await prisma.agendamentoServico.findMany({ where: { agendamentoId: id }, select: { servicoId: true } });
+    if (!mesmosServicos(itens.map((i) => i.servicoId), d.serviceIds)) throw falha(400, 'Este horário já foi pago. Para trocar os serviços, fale com a barbearia.');
+  }
   return prisma.$transaction(async (tx) => {
     const v = await validarReserva(tx, { ...d, ignore: id, publico: true });
     await tx.agendamentoServico.deleteMany({ where: { agendamentoId: id } });
@@ -243,8 +257,13 @@ export async function alterarDoCliente(id: string, clienteId: string, body: unkn
 }
 
 export async function cancelarDoCliente(id: string, clienteId: string) {
-  await apptDoCliente(id, clienteId);
-  const a = await prisma.agendamento.update({ where: { id }, data: { status: 'cancelado' }, include: apptInclude });
+  const atual = await apptDoCliente(id, clienteId);
+  if (atual.pagamentoStatus === 'pago') throw falha(400, 'Este horário já foi pago. Para cancelar e receber o estorno, fale com a barbearia.');
+  const a = await prisma.agendamento.update({
+    where: { id },
+    data: { status: 'cancelado', ...(atual.pagamentoStatus === 'pendente' ? { pagamentoStatus: 'cancelado' } : {}) },
+    include: apptInclude,
+  });
   return apptView(a);
 }
 
@@ -306,7 +325,13 @@ export async function alterarStatus(id: string, body: unknown) {
         throw e;
       });
     }
-    const up = await tx.agendamento.update({ where: { id }, data: { status }, include: apptInclude });
+    // cancelar um horario aguardando pagamento encerra a cobranca; reativar um que nao foi pago
+    // significa que a barbearia aceitou atender sem o pagamento online
+    const pagamento =
+      status === 'cancelado' && a.pagamentoStatus === 'pendente' ? { pagamentoStatus: 'cancelado' }
+      : status !== 'cancelado' && a.status === 'cancelado' && a.pagamentoStatus !== 'pago' ? { pagamentoStatus: 'nao_exigido' }
+      : {};
+    const up = await tx.agendamento.update({ where: { id }, data: { status, ...pagamento }, include: apptInclude });
     return { appt: apptView(up) };
   });
 }
@@ -334,7 +359,8 @@ export async function concluir(id: string) {
     const out: { points: number; voucher: { value: number } | null; referral: { referrerId: string; referrerName: string; points: number } | null } = { points: 0, voucher: null, referral: null };
 
     let desconto = a.descontoCentavos;
-    const v = await tx.voucher.findFirst({ where: { clienteId: a.clienteId, status: 'disponivel' }, orderBy: { criadoEm: 'asc' } });
+    // pago online: o valor cheio ja foi cobrado, entao o beneficio fica para o proximo atendimento
+    const v = a.pagamentoStatus === 'pago' ? null : await tx.voucher.findFirst({ where: { clienteId: a.clienteId, status: 'disponivel' }, orderBy: { criadoEm: 'asc' } });
     if (v && !desconto) {
       const usado = await tx.voucher.updateMany({ where: { id: v.id, status: 'disponivel' }, data: { status: 'utilizado', agendamentoUsoId: a.id, usadoEm: agora } });
       if (usado.count === 1) {
@@ -362,4 +388,17 @@ export async function concluir(id: string) {
     const fim = await tx.agendamento.findUniqueOrThrow({ where: { id }, include: apptInclude });
     return { appt: apptView(fim), ...out };
   });
+}
+
+/* ============ pagamento aprovado depois que o horario expirou ============ */
+// O horario volta para a agenda se ainda estiver livre; senao fica cancelado e pago,
+// e a gestao ve que precisa estornar ou remarcar com o cliente.
+export async function reativarSeLivre(tx: Tx, id: string) {
+  const a = await tx.agendamento.findUniqueOrThrow({ where: { id }, include: { itens: true } });
+  try {
+    await validarReserva(tx, { serviceIds: a.itens.map((i) => i.servicoId), proId: a.profissionalId, date: a.data, time: a.hora, ignore: a.id, equipe: true });
+    return true;
+  } catch {
+    return false;
+  }
 }

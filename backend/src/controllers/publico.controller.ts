@@ -5,6 +5,7 @@ import { signCliente } from '../lib/jwt';
 import { falha } from '../lib/erros';
 import * as catalogo from '../services/catalogo.service';
 import * as agenda from '../services/agenda.service';
+import * as pagamentos from '../services/pagamentos.service';
 
 export const catalogoPublico = h(() => catalogo.catalogoPublico());
 
@@ -27,7 +28,7 @@ export const indicacao = h(async (req) => {
 });
 
 export const agendar = h<AuthRequest>(async (req) => {
-  const r = await agenda.agendarPublico(req.body, req.clienteId || null);
+  const r = await pagamentos.agendarComPagamento(req.body, req.clienteId || null);
   return {
     appt: r.appt,
     account: r.conta,
@@ -36,3 +37,6 @@ export const agendar = h<AuthRequest>(async (req) => {
     token: r.conta === 'criada' ? signCliente(r.clienteId) : undefined,
   };
 }, 201);
+
+// Volta do Mercado Pago: confere o pagamento na hora e devolve o agendamento atualizado.
+export const situacaoPagamento = h((req) => pagamentos.situacao(String(req.params.id)));

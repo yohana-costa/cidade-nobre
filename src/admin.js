@@ -135,7 +135,7 @@ function vAgenda() {
   const HH = 64;
   const hours = []; for (let h = Math.floor(OPEN / 60); h <= Math.ceil(CLOSE / 60); h++) hours.push(h);
   const H = (CLOSE - OPEN) / 60 * HH;
-  const block = a => { const top = (tmin(a.time) - OPEN) / 60 * HH; const h = Math.max(26, a.dur / 60 * HH - 3); return `<button class="blk st-${a.status} ${UI.hl === a.id ? 'hl' : ''}" style="top:${top + 1}px;height:${h}px" data-act="appt" data-id="${a.id}" title="${esc(a.clientName)} · ${a.time}"><b>${a.time} · ${esc(a.clientName)}</b>${h > 40 ? `<span>${esc(apptLabel(a))}</span>` : ''}${h > 58 ? `<span>${STATUS[a.status]}${a.source === 'site' ? ' · site' : ''}</span>` : ''}</button>`; };
+  const block = a => { const top = (tmin(a.time) - OPEN) / 60 * HH; const h = Math.max(26, a.dur / 60 * HH - 3); return `<button class="blk st-${a.status} ${UI.hl === a.id ? 'hl' : ''}" style="top:${top + 1}px;height:${h}px" data-act="appt" data-id="${a.id}" title="${esc(a.clientName)} · ${a.time}"><b>${a.time} · ${esc(a.clientName)}</b>${h > 40 ? `<span>${esc(apptLabel(a))}</span>` : ''}${h > 58 ? `<span>${a.payment && PAY[a.payment.status] ? PAY[a.payment.status][0] : STATUS[a.status]}${a.source === 'site' ? ' · site' : ''}</span>` : ''}</button>`; };
   const nowTop = D === T && nowMin() > OPEN && nowMin() < CLOSE ? (nowMin() - OPEN) / 60 * HH : null;
   // atendimento de profissional que saiu da equipe continua aparecendo na lista do celular
   return `${toolbar}
@@ -148,7 +148,7 @@ function vAgenda() {
       ${pros.map(p => `<div class="tl-col" style="height:${H}px">${list.filter(a => a.proId === p.id).map(block).join('')}${nowTop !== null ? `<div class="nowline" style="top:${nowTop}px"></div>` : ''}</div>`).join('')}
     </div></div>
   </div>
-  <div class="mobile-only"><div class="ag-list">${list.length ? list.map(a => `<button class="ag-card ${UI.hl === a.id ? 'hl' : ''}" data-act="appt" data-id="${a.id}"><span class="tm">${a.time}<small>${a.dur} min</small></span><span><span class="top"><span class="nm">${esc(a.clientName)}</span>${statusPill(a.status)}</span><span class="ds" style="display:block">${esc(apptLabel(a))}</span><span class="pr" style="display:block">${esc(proName(a.proId))}${a.source === 'site' ? ' · agendado pelo site' : ''}</span></span></button>`).join('') : `<div class="empty">${G.open ? 'Nenhum atendimento neste dia.' : 'Barbearia fechada neste dia.'}</div>`}</div></div>`;
+  <div class="mobile-only"><div class="ag-list">${list.length ? list.map(a => `<button class="ag-card ${UI.hl === a.id ? 'hl' : ''}" data-act="appt" data-id="${a.id}"><span class="tm">${a.time}<small>${a.dur} min</small></span><span><span class="top"><span class="nm">${esc(a.clientName)}</span>${statusPill(a.status)}</span><span class="ds" style="display:block">${esc(apptLabel(a))}</span><span class="pr" style="display:block">${esc(proName(a.proId))}${a.source === 'site' ? ' · agendado pelo site' : ''}</span>${a.payment ? `<span style="display:block;margin-top:4px">${payPill(a)}</span>` : ''}</span></button>`).join('') : `<div class="empty">${G.open ? 'Nenhum atendimento neste dia.' : 'Barbearia fechada neste dia.'}</div>`}</div></div>`;
 }
 
 /* appointment detail modal */
@@ -182,10 +182,13 @@ function vApptModal(id) {
         <div><small>Valor</small><b class="tnum">${money(a.price)}${a.discount ? ` <span class="note">−${money(a.discount)}</span>` : ''}</b></div>
         <div><small>Telefone</small><b>${esc(fmtPhone(c.phone))}</b></div>
         <div><small>Origem</small><b>${a.source === 'site' ? 'Site' : 'Balcão / WhatsApp'}</b></div>
+        ${a.payment ? `<div class="full"><small>Pagamento online (Mercado Pago)</small><b>${payPill(a)} <span class="tnum">${money(a.payment.amount)}</span>${a.payment.paidAt ? ` <span class="note">em ${fStamp(a.payment.paidAt)}</span>` : a.payment.status === 'pendente' ? ` <span class="note">até as ${payUntil(a)}</span>` : ''}</b></div>` : ''}
         <div class="full"><small>Registrado em</small><b>${fStamp(a.createdAt)}</b></div>
         ${a.note ? `<div class="full"><small>Observação</small><b>${esc(a.note)}</b></div>` : ''}
       </div>
       ${impact}
+      ${a.payment && a.payment.status === 'pago' && a.status === 'cancelado' ? `<div class="callout gold">${ic('alert')}<span>Este horário foi pago online e está cancelado. Faça o estorno pelo Mercado Pago ou remarque com o cliente.</span></div>` : ''}
+      ${a.payment && a.payment.status === 'pendente' ? `<div class="callout gold">${ic('hourglass')}<span>O cliente ainda não pagou. Se não pagar até as ${payUntil(a)}, o horário é cancelado sozinho e volta a ficar livre.</span></div>` : ''}
       ${ask && ask.id === a.id ? `<div class="confirm-box"><p>${ask.s === 'concluido' ? `Confirmar a conclusão? Os pontos serão creditados uma única vez para este atendimento.` : 'Cancelar este atendimento na agenda?'}</p><div class="row"><button class="btn btn-ghost btn-sm" data-act="ask-cancel">Voltar</button><button class="btn btn-gold btn-sm" data-act="st" data-id="${a.id}" data-s="${ask.s}">${ask.s === 'concluido' ? 'Concluir atendimento' : 'Cancelar atendimento'}</button></div></div>` : ''}
     </div>
     ${(ask && ask.id === a.id) || !acts.length ? '' : `<div class="modal-f">${acts.join('')}</div>`}
@@ -412,6 +415,7 @@ function vConfig() {
     </div></section>`;
   }
   return `
+  ${vPagamentoOnline(adm)}
   <section class="panel"><div class="panel-h"><h2>Regras do Clube e da agenda</h2>${adm ? '' : '<span class="note">Somente administradores alteram estas regras.</span>'}</div><div class="panel-b">
     <form class="form" id="cfg-form" style="margin-top:0" novalidate>
       <div class="fld-row">${fld('perReal', 'Pontos por R$ 1 pago', C.pointsPerReal, 'type="number" min="0" max="100" step="1"')}${fld('referral', 'Bônus por indicação (pontos)', C.referralBonus, 'type="number" min="0" step="1"')}</div>
@@ -430,6 +434,21 @@ function vConfig() {
     <form class="form" id="pw-form" style="margin-top:0" novalidate><div class="fld-row"><div class="fld"><label for="pw-cur">Senha atual</label><input id="pw-cur" type="password" autocomplete="current-password"></div><div class="fld"><label for="pw-new">Nova senha</label><input id="pw-new" type="password" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"></div></div>
     <div><button class="btn btn-line btn-sm" data-act="pw-save">Alterar senha</button></div></form>
   </div></section>`;
+}
+
+/* pagamento online: a barbearia conecta a conta dela no Mercado Pago (OAuth) */
+function vPagamentoOnline(adm) {
+  const { d: M, wait } = load('mp', '/gestao/mercado-pago');
+  const head = `<div class="panel-h"><h2>Pagamento online</h2><span class="note">Mercado Pago</span></div>`;
+  if (!M) return `<section class="panel">${head}<div class="panel-b">${wait}</div></section>`;
+  let body;
+  if (!M.configurado) body = `<div class="callout gold">${ic('info')}<span>A conexão com o Mercado Pago ainda não foi configurada no servidor.</span></div>`;
+  else if (!M.conectado) body = `<p class="note" style="margin:0 0 12px">Conecte a conta do Mercado Pago da barbearia para o cliente pagar o agendamento pelo site, com Pix ou cartão. O dinheiro cai direto na conta conectada.</p>
+    ${adm ? `<button class="btn btn-gold" data-act="mp-connect">${ic('wallet')} Conectar Mercado Pago</button>` : '<span class="note">Somente administradores conectam a conta.</span>'}`;
+  else body = `<div class="callout ok" style="margin-top:0">${ic('check')}<span>Conta conectada${M.contaId ? ` (Mercado Pago nº ${esc(M.contaId)})` : ''}. ${M.cobrarOnline ? `O cliente paga ao agendar pelo site e tem ${M.prazoMinutos} minutos para concluir; sem pagamento, o horário é liberado sozinho.` : 'A cobrança online está desligada: o cliente agenda e paga na barbearia.'}</span></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:14px"><button class="switch ${M.cobrarOnline ? 'on' : ''}" role="switch" aria-checked="${M.cobrarOnline}" aria-label="Cobrar o agendamento online" ${adm ? `data-act="mp-toggle" data-on="${M.cobrarOnline}"` : 'disabled'}></button><span>Cobrar o agendamento do site online</span></div>
+    ${adm ? (UI.mpAsk ? `<div class="confirm-box"><p>Desconectar a conta? Os próximos agendamentos do site passam a ser pagos na barbearia.</p><div class="row"><button class="btn btn-ghost btn-sm" data-act="mp-disconnect-cancel">Voltar</button><button class="btn btn-gold btn-sm" data-act="mp-disconnect">Desconectar</button></div></div>` : `<div style="margin-top:14px"><button class="btn btn-ghost btn-sm" data-act="mp-disconnect-ask">Desconectar conta</button></div>`) : ''}`;
+  return `<section class="panel">${head}<div class="panel-b">${body}</div></section>`;
 }
 
 /* ---------- login da equipe ---------- */

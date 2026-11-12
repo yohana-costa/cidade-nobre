@@ -24,6 +24,7 @@ export interface Cfg {
   bookingDays: number;
   referralDomain: string;
   clubStart: string;
+  payOnline: boolean; // agendamento do site e pago pelo Mercado Pago
 }
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2, minimumFractionDigits: 0 });
@@ -50,6 +51,7 @@ export function toCfg(c: Configuracao): Cfg {
     bookingDays: c.diasAgendamento,
     referralDomain: c.dominioIndicacao,
     clubStart: c.inicioClube || hoje(),
+    payOnline: c.cobrarOnline && !!c.mercadoPagoAccessToken,
   };
 }
 

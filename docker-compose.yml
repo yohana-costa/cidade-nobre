@@ -35,6 +35,12 @@ services:
       NODE_ENV: production
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      # Mercado Pago (app da SMG; a barbearia conecta a conta dela na gestao). Vazio = sem pagamento online.
+      SITE_URL: ${SITE_URL:-https://cidadenobre.147-93-145-137.sslip.io}
+      MERCADO_PAGO_CLIENT_ID: ${MERCADO_PAGO_CLIENT_ID:-}
+      MERCADO_PAGO_CLIENT_SECRET: ${MERCADO_PAGO_CLIENT_SECRET:-}
+      MERCADO_PAGO_OAUTH_REDIRECT_URI: ${MERCADO_PAGO_OAUTH_REDIRECT_URI:-}
+      MERCADO_PAGO_TAXA_PLATAFORMA_PCT: ${MERCADO_PAGO_TAXA_PLATAFORMA_PCT:-2}
       DATABASE_URL: postgresql://cidadenobre:${POSTGRES_PASSWORD}@cidadenobre-postgres:5432/cidade_nobre?schema=public&connect_timeout=30
       DATABASE_URL_UNPOOLED: postgresql://cidadenobre:${POSTGRES_PASSWORD}@cidadenobre-postgres:5432/cidade_nobre?schema=public&connect_timeout=30
     networks:

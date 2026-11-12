@@ -8,4 +8,5 @@ router.get('/catalogo', c.catalogoPublico);
 router.get('/disponibilidade', clienteOpcional, c.disponibilidade);
 router.get('/indicacao/:codigo', c.indicacao);
 router.post('/agendamentos', clienteOpcional, c.agendar);
+router.get('/agendamentos/:id/pagamento', c.situacaoPagamento);
 export default router;

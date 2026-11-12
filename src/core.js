@@ -43,6 +43,10 @@ const fmtPhone = s => {
 let OPEN = tmin('09:00'), CLOSE = tmin('19:00'), DAY_CAP = CLOSE - OPEN;
 let SLOT_TIMES = [], LAPSE_DAYS = 45, CLOSED_DAYS = [0];
 const STATUS = { agendado: 'Agendado', confirmado: 'Confirmado', concluido: 'Concluído', cancelado: 'Cancelado' };
+// pagamento online do agendamento (Mercado Pago); null = nao foi cobrado pelo site
+const PAY = { pendente: ['Aguardando pagamento', 'confirmado'], pago: ['Pago online', 'concluido'], expirado: ['Pagamento expirado', 'cancelado'], cancelado: ['Pagamento cancelado', 'cancelado'], estornado: ['Pagamento estornado', 'cancelado'] };
+const payPill = a => a && a.payment && PAY[a.payment.status] ? `<span class="pill st-${PAY[a.payment.status][1]}">${PAY[a.payment.status][0]}</span>` : '';
+const payUntil = a => { const d = a && a.payment && a.payment.expiresAt ? new Date(a.payment.expiresAt) : null; return d ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''; };
 const isOpen = s => !CLOSED_DAYS.includes(dow(s));
 
 // DB: catalogo publico (servicos, categorias, profissionais e regras). Dados de clientes

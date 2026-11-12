@@ -7,6 +7,7 @@ import { authRoutes, usuariosRoutes } from './routes/auth.routes';
 import publicoRoutes from './routes/publico.routes';
 import contaRoutes from './routes/conta.routes';
 import gestaoRoutes from './routes/gestao.routes';
+import mercadoPagoRoutes from './routes/mercado-pago.routes';
 
 // App Express sem listen: usado pela funcao da Vercel (api/index.ts) e pelo server.ts local.
 const app = express();
@@ -25,6 +26,7 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/publico', publicoRoutes);
 app.use('/api/conta', contaRoutes);
 app.use('/api/gestao', gestaoRoutes);
+app.use('/api', mercadoPagoRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

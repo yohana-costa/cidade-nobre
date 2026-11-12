@@ -33,4 +33,9 @@ router.delete('/profissionais/:id', requireGerente, c.removerProfissional);
 
 router.get('/configuracoes', c.obterConfiguracao);
 router.put('/configuracoes', requireAdmin, c.atualizarConfiguracao);
+
+router.get('/mercado-pago', c.statusMercadoPago);
+router.get('/mercado-pago/conectar', requireAdmin, c.conectarMercadoPago);
+router.post('/mercado-pago/desconectar', requireAdmin, c.desconectarMercadoPago);
+router.put('/mercado-pago', requireAdmin, c.cobrancaMercadoPago);
 export default router;

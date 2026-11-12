@@ -25,4 +25,17 @@ export const config = {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
+  // Endereco publico do site (volta do pagamento, aviso do Mercado Pago e volta do OAuth).
+  siteUrl: (process.env.SITE_URL || 'https://cidadenobre.147-93-145-137.sslip.io').replace(/\/+$/, ''),
+  // Mercado Pago: o app e da SMG (client_id/secret no .env); a barbearia conecta a conta
+  // dela por OAuth e o dinheiro cai la. A SMG fica com a comissao (marketplace_fee).
+  mercadoPago: {
+    apiBaseUrl: (process.env.MERCADO_PAGO_API_BASE_URL || 'https://api.mercadopago.com').replace(/\/+$/, ''),
+    clientId: process.env.MERCADO_PAGO_CLIENT_ID || '',
+    clientSecret: process.env.MERCADO_PAGO_CLIENT_SECRET || '',
+    redirectUri: process.env.MERCADO_PAGO_OAUTH_REDIRECT_URI || '',
+    taxaPlataformaPct: Number(process.env.MERCADO_PAGO_TAXA_PLATAFORMA_PCT ?? 2),
+    // tempo para pagar; depois disso o horario volta a ficar livre
+    prazoPagamentoMin: Number(process.env.MERCADO_PAGO_PRAZO_MINUTOS || 30),
+  },
 };

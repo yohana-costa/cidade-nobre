@@ -4,6 +4,7 @@ import * as agenda from '../services/agenda.service';
 import * as clientes from '../services/clientes.service';
 import * as catalogo from '../services/catalogo.service';
 import * as configuracao from '../services/configuracao.service';
+import * as mercadoPago from '../services/mercado-pago.service';
 
 const q = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -38,3 +39,9 @@ export const removerProfissional = h((req) => catalogo.removerProfissional(req.p
 // regras do negocio
 export const obterConfiguracao = h(() => configuracao.obterConfiguracao());
 export const atualizarConfiguracao = h((req) => configuracao.atualizarConfiguracao(req.body));
+
+// pagamento online (Mercado Pago)
+export const statusMercadoPago = h(() => mercadoPago.statusConexao());
+export const conectarMercadoPago = h(async () => mercadoPago.iniciarConexao());
+export const desconectarMercadoPago = h(() => mercadoPago.desconectar());
+export const cobrancaMercadoPago = h((req) => mercadoPago.definirCobrarOnline(req.body));

@@ -14,7 +14,10 @@ export interface ApptV {
   id: string; clientId: string; proId: string; chosenPro: string; serviceIds: string[]; items: ItemV[];
   date: string; time: string; dur: number; price: number; discount: number; status: string; source: string;
   note: string | null; createdAt: string; concludedAt: string | null;
+  payment: PaymentV | null;
 }
+// Pagamento online do agendamento (null = nao foi cobrado pelo site)
+export interface PaymentV { status: string; amount: number; link: string | null; expiresAt: string | null; paidAt: string | null }
 export interface ClientV { id: string; name: string; phone: string; email: string; code: string; createdAt: string; referredBy: string | null; hasAccount: boolean }
 export interface MoveV { id: string; clientId: string; type: string; points: number; apptId: string | null; referralId: string | null; voucherId: string | null; at: string; note: string | null }
 export interface RefV { id: string; referrerId: string; referredId: string; status: string; apptId: string | null; createdAt: string; doneAt: string | null }
@@ -51,6 +54,13 @@ export function apptView(a: ApptRow): ApptV {
     note: a.observacao,
     createdAt: carimbo(a.criadoEm),
     concludedAt: a.concluidoEm ? carimbo(a.concluidoEm) : null,
+    payment: a.pagamentoStatus === 'nao_exigido' ? null : {
+      status: a.pagamentoStatus,
+      amount: reais(a.pagamentoValorCentavos ?? a.precoCentavos),
+      link: a.pagamentoStatus === 'pendente' ? a.pagamentoLink : null,
+      expiresAt: a.pagamentoExpiraEm ? a.pagamentoExpiraEm.toISOString() : null,
+      paidAt: a.pagoEm ? carimbo(a.pagoEm) : null,
+    },
   };
 }
 

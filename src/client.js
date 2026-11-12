@@ -247,8 +247,8 @@ function vDados() {
       </div>
       <aside class="bk-side">
         <div class="sumbar">${ic('calendar')}<span>${esc(svcLabel(d.serviceIds))} &nbsp;•&nbsp; ${fDM(d.date)} às ${d.time}</span></div>
-        <div class="bk-cta"><button class="btn btn-gold btn-serif" data-act="confirm-booking" id="confirm-btn">${editing ? 'Salvar alterações' : 'Confirmar agendamento'} ${ic('right')}</button></div>
-        <div class="info">${ic('info')}O pagamento é feito na barbearia. Os pontos do Clube entram depois que o atendimento é concluído.</div>
+        <div class="bk-cta"><button class="btn btn-gold btn-serif" data-act="confirm-booking" id="confirm-btn">${editing ? 'Salvar alterações' : DB.settings.payOnline ? 'Ir para o pagamento' : 'Confirmar agendamento'} ${ic('right')}</button></div>
+        <div class="info">${ic('info')}${DB.settings.payOnline && !editing ? 'O pagamento é feito agora, com Pix ou cartão, na página segura do Mercado Pago. O horário fica reservado enquanto você paga.' : editing ? 'As alterações valem na hora para a agenda da barbearia.' : 'O pagamento é feito na barbearia.'} Os pontos do Clube entram depois que o atendimento é concluído.</div>
       </aside>
     </div>
   </div></div>`;
@@ -260,6 +260,9 @@ function vConfirmado() {
   if (!b || !b.appt) return vHome();
   const a = b.appt;
   const edited = b.edited;
+  const pay = a.payment ? a.payment.status : null;
+  if (pay === 'expirado' || (pay === 'cancelado' && a.status === 'cancelado')) return vPagamentoEncerrado(b);
+  const aguardando = pay === 'pendente';
   const contaMsg = b.account === 'criada' ? 'Sua conta foi criada. Acompanhe seus pontos no Clube.'
     : b.passwordIgnored ? 'Este telefone já tem uma conta. Entre com a sua senha para acompanhar seus pontos.'
     : b.account === 'sem-conta' && !ME ? 'Para acompanhar seus pontos, peça na barbearia o código de primeiro acesso ou crie uma senha no próximo agendamento.' : '';
@@ -268,20 +271,43 @@ function vConfirmado() {
     <div class="wrap" style="padding-top:calc(18px + env(safe-area-inset-top,0px))">
       <div class="cf-head">
         <img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" style="width:84px;height:auto">
-        <span class="ok-mark">${ic('check')}</span>
-        <div class="eyebrow" style="font-size:9.5px">Agendamento confirmado</div>
-        <h1>${edited ? 'Alteração registrada' : `Tudo certo, ${esc(firstName(b.name))}.`}</h1>
-        <p>${edited ? 'Seu horário foi atualizado na agenda da barbearia.' : 'Seu horário está reservado na agenda da barbearia.'}</p>
+        <span class="ok-mark">${ic(aguardando ? 'hourglass' : 'check')}</span>
+        <div class="eyebrow" style="font-size:9.5px">${aguardando ? 'Aguardando pagamento' : pay === 'pago' ? 'Pagamento aprovado' : 'Agendamento confirmado'}</div>
+        <h1>${edited ? 'Alteração registrada' : aguardando ? 'Falta o pagamento.' : `Tudo certo${b.name ? ', ' + esc(firstName(b.name)) : ''}.`}</h1>
+        <p>${edited ? 'Seu horário foi atualizado na agenda da barbearia.' : aguardando ? `Seu horário fica reservado até as ${payUntil(a)}. Depois disso ele volta a ficar livre.` : pay === 'pago' ? 'Pagamento recebido e horário garantido na agenda da barbearia.' : 'Seu horário está reservado na agenda da barbearia.'}</p>
+        ${aguardando ? `<div class="cf-actions" style="margin-top:14px">${a.payment.link ? `<a class="btn btn-gold btn-serif" href="${esc(a.payment.link)}">${ic('wallet')} Pagar agora</a>` : ''}<button class="btn btn-line" data-act="pay-check" data-id="${a.id}">${ic('refresh')} Já paguei, atualizar</button></div>` : ''}
       </div>
       <div style="display:flex;justify-content:center;margin-top:16px">${stepper([{ n: 3, label: 'Horário', st: 'done' }, { n: 4, label: 'Seus dados', st: 'done' }, { n: 5, label: 'Confirmação', st: 'done' }]).replace('class="stepper"', 'class="stepper" style="width:100%;padding-right:0;margin-top:0"')}</div>
       <div class="recap" style="margin-top:16px">
-        <div class="recap-row">${ic('user')}<div><small>Cliente</small><b>${esc(b.name)}</b><span class="note">${esc(b.phone)}${b.email ? ' · ' + esc(b.email) : ''}</span></div><span class="pill st-${a.status}">${STATUS[a.status]}</span></div>
+        ${b.name ? `<div class="recap-row">${ic('user')}<div><small>Cliente</small><b>${esc(b.name)}</b><span class="note">${esc(b.phone)}${b.email ? ' · ' + esc(b.email) : ''}</span></div>${payPill(a) || `<span class="pill st-${a.status}">${STATUS[a.status]}</span>`}</div>` : ''}
       </div>
       ${recapCard({ items: a.items, proId: a.chosenPro, assigned: a.proId, date: a.date, time: a.time, total: a.price })}
       <div class="demo-banner">${ic('info')}<span>Os pontos entram no Clube depois que a barbearia marca o atendimento como concluído.${contaMsg ? ' ' + contaMsg : ''}</span></div>
       <div class="cf-actions">
         <button class="btn btn-gold btn-serif" data-go="perfil">${ME ? 'Ver meu perfil' : 'Entrar na minha conta'} ${ic('right')}</button>
         ${ME ? `<button class="btn btn-line" data-act="edit-appt" data-id="${a.id}">${ic('edit')} Revisar agendamento</button>` : ''}
+        <button class="btn btn-ghost" data-go="home">Voltar ao início</button>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* pagamento nao feito no prazo: o horario foi liberado */
+function vPagamentoEncerrado(b) {
+  const a = b.appt;
+  return `<div class="scr bk cf">
+  <div class="d-page cf-wrap">
+    <div class="wrap" style="padding-top:calc(18px + env(safe-area-inset-top,0px))">
+      <div class="cf-head">
+        <img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" style="width:84px;height:auto">
+        <span class="ok-mark">${ic('ban')}</span>
+        <div class="eyebrow" style="font-size:9.5px">${PAY[a.payment.status][0]}</div>
+        <h1>Horário liberado.</h1>
+        <p>O pagamento não foi concluído a tempo, então o horário de ${fDM(a.date)} às ${a.time} voltou para a agenda. Se você pagou agora há pouco, toque em atualizar.</p>
+      </div>
+      <div class="cf-actions">
+        <button class="btn btn-gold btn-serif" data-act="start-booking">Escolher outro horário ${ic('right')}</button>
+        <button class="btn btn-line" data-act="pay-check" data-id="${a.id}">${ic('refresh')} Já paguei, atualizar</button>
         <button class="btn btn-ghost" data-go="home">Voltar ao início</button>
       </div>
     </div>
@@ -404,8 +430,9 @@ function vPerfil() {
       <section class="sec">
         <div class="sec-h"><h2 class="h-bold" style="font-size:19px">${upcoming.length > 1 ? 'Próximos agendamentos' : 'Próximo agendamento'}</h2>${upcoming.length > 1 ? `<span class="note">${upcoming.length} horários marcados</span>` : ''}</div>
         ${next ? `<div class="next">
-          <div class="next-top"><div><div class="when">${fDayLong(next.date).replace(/^./, m => m.toUpperCase())}<br>às ${next.time}</div><div class="what">${esc(apptNames(next).join(' + '))} · ${pn(next.proId)}</div></div><span class="pill st-${next.status}">${STATUS[next.status]}</span></div>
-          <div class="next-actions"><button class="btn btn-line" data-act="edit-appt" data-id="${next.id}">${ic('edit')} Alterar</button><button class="btn btn-ghost" data-act="cancel-ask" data-id="${next.id}">Cancelar</button></div>
+          <div class="next-top"><div><div class="when">${fDayLong(next.date).replace(/^./, m => m.toUpperCase())}<br>às ${next.time}</div><div class="what">${esc(apptNames(next).join(' + '))} · ${pn(next.proId)}</div></div>${next.payment && next.payment.status === 'pendente' ? payPill(next) : `<span class="pill st-${next.status}">${STATUS[next.status]}</span>`}</div>
+          ${next.payment && next.payment.status === 'pendente' ? `<p class="note" style="margin:8px 0 0">Pague até as ${payUntil(next)} para garantir o horário.</p>` : ''}
+          <div class="next-actions">${next.payment && next.payment.status === 'pendente' && next.payment.link ? `<a class="btn btn-gold" href="${esc(next.payment.link)}">${ic('wallet')} Pagar agora</a>` : ''}<button class="btn btn-line" data-act="edit-appt" data-id="${next.id}">${ic('edit')} Alterar</button><button class="btn btn-ghost" data-act="cancel-ask" data-id="${next.id}">Cancelar</button></div>
         </div>${later.length ? `<div class="hist" style="margin-top:8px">${later.map(a => { const dd = parseD(a.date); return `<div class="hrow"><div class="hdate"><b>${pad(dd.getDate())}</b><small>${MES[dd.getMonth()].replace('.', '')}</small></div><div><div class="t">${esc(apptNames(a).join(' + '))}</div><div class="s">${a.time} · ${pn(a.proId)}</div></div><button class="link" data-act="edit-appt" data-id="${a.id}">Alterar</button></div>`; }).join('')}</div>` : ''}` : `<div class="next" style="text-align:center"><div class="what" style="margin:0 0 12px">Você não tem horários marcados.</div><button class="btn btn-gold" data-act="start-booking">Agendar meu horário ${ic('arrow')}</button></div>`}
       </section>
     </div><div>

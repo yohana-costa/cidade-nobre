@@ -45,6 +45,14 @@ model Configuracao {
   diasAgendamento      Int      @default(5)
   dominioIndicacao     String   @default("")
   inicioClube          String   @default("")
+  // Pagamento online: a barbearia conecta a conta dela no Mercado Pago (OAuth pelo app da SMG).
+  // Com conta conectada e cobrarOnline ligado, o agendamento do site so vale depois de pago.
+  cobrarOnline             Boolean   @default(true)
+  mercadoPagoAccessToken   String?
+  mercadoPagoRefreshToken  String?
+  mercadoPagoUserId        String?
+  mercadoPagoPublicKey     String?
+  mercadoPagoTokenExpiraEm DateTime?
   atualizadoEm         DateTime @updatedAt
 
   @@map("configuracoes")
@@ -130,6 +138,14 @@ model Agendamento {
   status                   String               @default("agendado") // agendado | confirmado | concluido | cancelado
   origem                   String               @default("site") // site | balcao
   observacao               String?
+  // nao_exigido | pendente | pago | expirado | cancelado (cobranca do site pelo Mercado Pago)
+  pagamentoStatus          String               @default("nao_exigido")
+  pagamentoValorCentavos   Int?
+  pagamentoPreferenciaId   String?
+  pagamentoLink            String?
+  pagamentoId              String? // id do pagamento aprovado no Mercado Pago
+  pagamentoExpiraEm        DateTime?
+  pagoEm                   DateTime?
   concluidoEm              DateTime?
   criadoEm                 DateTime             @default(now())
   atualizadoEm             DateTime             @updatedAt
@@ -140,6 +156,7 @@ model Agendamento {
 
   @@index([data, profissionalId])
   @@index([clienteId])
+  @@index([pagamentoStatus])
   @@map("agendamentos")
 }
 

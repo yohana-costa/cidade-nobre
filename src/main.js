@@ -97,6 +97,17 @@ function setMode(mode, push) {
   saveUI(); render();
 }
 
+/* ---- pagamento online ---- */
+// Consulta o agendamento na API (que confere o pagamento no Mercado Pago) e atualiza a tela de confirmação.
+async function checkPayment(id) {
+  const appt = await API.get(`/publico/agendamentos/${encodeURIComponent(id)}/pagamento`);
+  const b = UI.lastBooking && UI.lastBooking.appt && UI.lastBooking.appt.id === id ? UI.lastBooking : { name: '', phone: '', email: '' };
+  UI.lastBooking = { ...b, appt };
+  dropCache('av:');
+  await loadMe();
+  saveUI();
+}
+
 /* ---- booking helpers ---- */
 function startBooking() { if (UI.draft.editingId) UI.draft = emptyDraft(); go('servicos'); }
 function editAppt(id) {
@@ -179,9 +190,11 @@ document.addEventListener('click', async e => {
           }
           if (res.token) API.setToken('client', res.token);
           if (!d.editingId) UI.refCode = null;
-          UI.lastBooking = { ...res, name: d.name.trim(), phone: fmtPhone(d.phone), email: d.email.trim() };
+          UI.lastBooking = { appt: res.appt, account: res.account, passwordIgnored: res.passwordIgnored, edited: res.edited, name: d.name.trim(), phone: fmtPhone(d.phone), email: d.email.trim() };
           UI.draft = emptyDraft(); UI.formErrors = null;
           dropCache('av:');
+          // pagamento online: segue para o Mercado Pago; a volta cai em /?pagamento=<id>
+          if (!d.editingId && res.appt.payment && res.appt.payment.status === 'pendente' && res.appt.payment.link) { UI.screen = 'confirmado'; saveUI(); location.href = res.appt.payment.link; break; }
           await loadMe();
           go('confirmado');
         } catch (err) {
@@ -211,6 +224,12 @@ document.addEventListener('click', async e => {
         break;
       }
       case 'cancel-ask': openLayer({ kind: 'cancel', id: D.id }); break;
+      case 'pay-check': {
+        const done = busy(t, 'Consultando…');
+        try { await checkPayment(D.id); done(); render(true); const p = UI.lastBooking.appt.payment; toast(p && p.status === 'pago' ? 'Pagamento aprovado. Horário garantido.' : 'Ainda não recebemos a confirmação do pagamento. Pode levar alguns instantes.', p && p.status === 'pago' ? 'check' : 'info'); }
+        catch (err) { done(); toast(err.message, 'alert'); }
+        break;
+      }
       case 'cancel-appt': {
         const done = busy(t, 'Cancelando…');
         try { await API.post(`/conta/agendamentos/${D.id}/cancelar`, {}, 'client'); dropCache('av:'); await loadMe(); closeLayer(); render(true); toast('Horário cancelado.', 'check'); }
@@ -391,6 +410,25 @@ document.addEventListener('click', async e => {
         catch (err) { toast(err.message, 'alert'); }
         break;
       }
+      case 'mp-connect': {
+        const done = busy(t, 'Abrindo o Mercado Pago…');
+        try { const r = await API.get('/gestao/mercado-pago/conectar', 'staff'); location.href = r.url; }
+        catch (err) { done(); toast(err.message, 'alert'); }
+        break;
+      }
+      case 'mp-disconnect-ask': UI.mpAsk = true; render(true); break;
+      case 'mp-disconnect-cancel': UI.mpAsk = false; render(true); break;
+      case 'mp-disconnect': {
+        UI.mpAsk = false;
+        try { CACHE.mp = { data: await API.post('/gestao/mercado-pago/desconectar', {}, 'staff'), at: Date.now() }; await loadCatalog(); render(true); toast('Mercado Pago desconectado. Os agendamentos do site voltam a ser pagos na barbearia.', 'info'); }
+        catch (err) { toast(err.message, 'alert'); }
+        break;
+      }
+      case 'mp-toggle': {
+        try { CACHE.mp = { data: await API.put('/gestao/mercado-pago', { cobrarOnline: D.on !== 'true' }, 'staff'), at: Date.now() }; await loadCatalog(); render(true); toast(D.on === 'true' ? 'Cobrança online desligada: o cliente paga na barbearia.' : 'Cobrança online ligada: o cliente paga ao agendar.'); }
+        catch (err) { toast(err.message, 'alert'); }
+        break;
+      }
       case 'pw-save': {
         e.preventDefault();
         try { await API.post('/usuarios/senha', { senhaAtual: document.getElementById('pw-cur').value, novaSenha: document.getElementById('pw-new').value }, 'staff'); document.getElementById('pw-cur').value = ''; document.getElementById('pw-new').value = ''; toast('Senha alterada.'); }
@@ -462,9 +500,19 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   let ref = null;
   if (m) { ref = m[1].toUpperCase(); UI.refCode = ref; UI.screen = 'home'; history.replaceState(null, '', '/'); }
   UI.mode = /^\/gestao/.test(location.pathname) ? 'admin' : 'client';
+  // volta do Mercado Pago (/?pagamento=<id>) e volta do "Conectar Mercado Pago" (/gestao?mp=ok|erro)
+  const pg = location.search.match(/[?&]pagamento=([0-9a-f-]{36})/i);
+  const mpVolta = location.search.match(/[?&]mp=(ok|erro)/);
+  if (pg || mpVolta) history.replaceState(null, '', location.pathname);
+  if (mpVolta) UI.admin = 'config';
   UI.hl = null; UI.confirmAct = null; UI.staffErr = null; UI.authErr = null; UI.cfgErr = null;
   render();
   await Promise.all([loadCatalog(), loadMe(), UI.mode === 'admin' ? loadStaff() : Promise.resolve()]);
+  if (pg) {
+    try { await checkPayment(pg[1]); UI.screen = 'confirmado'; UI.mode = 'client'; }
+    catch (e) { toast(e.message, 'alert'); }
+  }
+  if (mpVolta) toast(mpVolta[1] === 'ok' ? 'Mercado Pago conectado. Os agendamentos do site já podem ser pagos online.' : 'Não foi possível conectar o Mercado Pago. Tente de novo.', mpVolta[1] === 'ok' ? 'check' : 'alert');
   if (UI.screen === 'confirmado' && !(UI.lastBooking && UI.lastBooking.appt)) UI.screen = 'home';
   UI.draft.serviceIds = UI.draft.serviceIds.filter(i => svc(i));
   if (UI.draft.editingId && !ME) UI.draft = emptyDraft();
