@@ -17,6 +17,11 @@ export function errorHandler(err: any, req: Request, res: Response, _next: NextF
     });
   }
 
+  // Upload: arquivo grande demais ou campo errado
+  if (err?.name === 'MulterError') {
+    return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'A imagem passa de 5 MB. Envie uma foto menor.' : 'Envio de imagem inválido.' });
+  }
+
   // JSON mal formado no corpo da requisicao
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Corpo da requisição inválido.' });

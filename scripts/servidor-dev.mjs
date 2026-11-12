@@ -23,7 +23,7 @@ function proxy(req, res) {
 }
 
 const srv = http.createServer(async (req, res) => {
-  if (req.url.startsWith('/api/') || req.url === '/api') return proxy(req, res);
+  if (req.url.startsWith('/api/') || req.url === '/api' || req.url.startsWith('/uploads/')) return proxy(req, res);
   try {
     const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '');
     let file = path.resolve(ROOT, rel || 'index.html');

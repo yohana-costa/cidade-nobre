@@ -35,6 +35,10 @@ export const removerServico = h((req) => catalogo.removerServico(req.params.id))
 export const criarProfissional = h((req) => catalogo.criarProfissional(req.body), 201);
 export const atualizarProfissional = h((req) => catalogo.atualizarProfissional(req.params.id, req.body));
 export const removerProfissional = h((req) => catalogo.removerProfissional(req.params.id));
+export const enviarImagemServico = h((req) => catalogo.enviarImagemServico(req.params.id, req.file));
+export const removerImagemServico = h((req) => catalogo.removerImagemServico(req.params.id));
+export const enviarFotoProfissional = h((req) => catalogo.enviarFotoProfissional(req.params.id, req.file));
+export const removerFotoProfissional = h((req) => catalogo.removerFotoProfissional(req.params.id));
 
 // regras do negocio
 export const obterConfiguracao = h(() => configuracao.obterConfiguracao());

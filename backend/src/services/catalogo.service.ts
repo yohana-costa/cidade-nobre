@@ -4,8 +4,9 @@ import { falha } from '../lib/erros';
 import { hoje } from '../lib/datas';
 import { reais } from '../lib/base';
 import { obterConfiguracao } from './configuracao.service';
+import { removerFoto, salvarFoto } from '../lib/storage';
 
-// Imagens disponiveis em assets/ para ilustrar um servico no site
+// Imagens prontas em assets/ para ilustrar um servico no site (ou uma foto enviada, em /uploads)
 export const IMAGENS_SERVICO = ['svc_corte', 'svc_barba', 'svc_penteado', 'svc_manicure', 'svc_nasal', 'svc_sobrancelha', 'cat_cabelo', 'cat_barba', 'cat_cuidados'];
 
 type ServicoRow = { id: string; nome: string; descricao: string; categoriaId: string; duracaoMin: number; precoCentavos: number; imagem: string | null; visivel: boolean; ativo: boolean; ordem: number };
@@ -27,7 +28,7 @@ export async function catalogoPublico() {
     settings: cfg,
     categories: categorias.map((c) => ({ id: c.id, name: c.nome })),
     services: servicos.map(serviceView),
-    pros: pros.map((p) => ({ id: p.id, name: p.nome, services: p.servicos.map((s) => s.id) })),
+    pros: pros.map((p) => ({ id: p.id, name: p.nome, photo: p.foto, services: p.servicos.map((s) => s.id) })),
   };
 }
 
@@ -86,16 +87,68 @@ export async function atualizarServico(id: string, body: unknown) {
     if (outro) throw falha(409, 'Já existe um serviço com esse nome.');
   }
   if (d.visible === false && atual.visivel) await garantirUmVisivel(id);
+  // a foto enviada volta igual no formulario; so muda quando escolhem uma imagem pronta
+  const imagem = d.img !== undefined && d.img !== atual.imagem ? imagemValida(d.img) : undefined;
   const s = await prisma.servico.update({
     where: { id },
     data: {
       nome: d.name, descricao: d.desc, categoriaId: d.cat, duracaoMin: d.dur,
       precoCentavos: d.price !== undefined ? Math.round(d.price * 100) : undefined,
-      imagem: d.img !== undefined ? imagemValida(d.img) : undefined, visivel: d.visible, ordem: d.order,
+      imagem, visivel: d.visible, ordem: d.order,
       ...(d.proIds ? { profissionais: { set: d.proIds.map((pid) => ({ id: pid })) } } : {}),
     },
   });
+  if (imagem !== undefined) await removerFoto(atual.imagem);
   return serviceView(s);
+}
+
+/* ============ gestao: fotos enviadas ============ */
+type Arquivo = { buffer: Buffer; mimetype: string } | undefined;
+
+// Grava a foto e so entao atualiza o banco; se o banco falhar, apaga a foto nova para nao sobrar arquivo solto.
+async function trocarFoto<T>(arquivo: { buffer: Buffer; mimetype: string }, prefixo: string, gravar: (url: string) => Promise<T>) {
+  const url = await salvarFoto(arquivo.buffer, arquivo.mimetype, prefixo);
+  try {
+    return await gravar(url);
+  } catch (e) {
+    await removerFoto(url);
+    throw e;
+  }
+}
+
+export async function enviarImagemServico(id: string, arquivo: Arquivo) {
+  if (!arquivo) throw falha(400, 'Nenhuma imagem enviada.');
+  const atual = await prisma.servico.findUnique({ where: { id } });
+  if (!atual || !atual.ativo) throw falha(404, 'Serviço não encontrado.');
+  const s = await trocarFoto(arquivo, `servico-${id}`, (url) => prisma.servico.update({ where: { id }, data: { imagem: url } }));
+  await removerFoto(atual.imagem);
+  return serviceView(s);
+}
+
+// Sem foto o servico volta para a imagem padrao da categoria.
+export async function removerImagemServico(id: string) {
+  const atual = await prisma.servico.findUnique({ where: { id } });
+  if (!atual || !atual.ativo) throw falha(404, 'Serviço não encontrado.');
+  const s = await prisma.servico.update({ where: { id }, data: { imagem: null } });
+  await removerFoto(atual.imagem);
+  return serviceView(s);
+}
+
+export async function enviarFotoProfissional(id: string, arquivo: Arquivo) {
+  if (!arquivo) throw falha(400, 'Nenhuma imagem enviada.');
+  const atual = await prisma.profissional.findUnique({ where: { id } });
+  if (!atual || !atual.ativo) throw falha(404, 'Profissional não encontrado.');
+  const p = await trocarFoto(arquivo, `profissional-${id}`, (url) => prisma.profissional.update({ where: { id }, data: { foto: url }, include: { servicos: { select: { id: true } } } }));
+  await removerFoto(atual.foto);
+  return proView(p);
+}
+
+export async function removerFotoProfissional(id: string) {
+  const atual = await prisma.profissional.findUnique({ where: { id } });
+  if (!atual || !atual.ativo) throw falha(404, 'Profissional não encontrado.');
+  const p = await prisma.profissional.update({ where: { id }, data: { foto: null }, include: { servicos: { select: { id: true } } } });
+  await removerFoto(atual.foto);
+  return proView(p);
 }
 
 // Remover nao apaga: o servico sai do catalogo e da equipe, mas os atendimentos antigos
@@ -121,7 +174,7 @@ async function validarServicos(ids: string[]) {
   if (n !== new Set(ids).size) throw falha(400, 'Serviço inválido na lista do profissional.');
 }
 
-const proView = (p: { id: string; nome: string; ordem: number; servicos: { id: string }[] }) => ({ id: p.id, name: p.nome, order: p.ordem, services: p.servicos.map((s) => s.id) });
+const proView = (p: { id: string; nome: string; foto: string | null; ordem: number; servicos: { id: string }[] }) => ({ id: p.id, name: p.nome, photo: p.foto, order: p.ordem, services: p.servicos.map((s) => s.id) });
 
 export async function criarProfissional(body: unknown) {
   const d = proSchema.parse(body);

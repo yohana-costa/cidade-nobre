@@ -1,6 +1,7 @@
 /* ============ client experience ============ */
 const A = window.ASSETS || {};
-const img = k => A[k] || A.cat_cabelo;
+// imagem do servico: foto enviada pela gestao (/uploads/...) ou uma das imagens prontas
+const img = k => (k && k.startsWith('/uploads/') ? k : A[k] || A.cat_cabelo);
 const crest = (cls) => `<div class="crest ${cls}"><img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"></div>`;
 const crestD = (w) => `<div class="crest-d" style="width:${w}px"><img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"></div>`;
 const lockup = (h = 44) => `<img src="${A.lockup}" alt="Cidade Nobre, Barbearia Premium" style="height:${h}px;width:auto" width="735" height="184">`;
@@ -133,7 +134,7 @@ function vAgendar() {
   const avErr = needErr(availKey(d));
   const days = ensureBookingDefaults(av);
   const editing = !!d.editingId;
-  const proCards = [{ id: 'any', label: 'Sem preferência', icon: 'usersF' }, ...DB.pros.map(p => ({ id: p.id, label: p.name, icon: 'userF' }))];
+  const proCards = [{ id: 'any', label: 'Sem preferência', icon: 'usersF' }, ...DB.pros.map(p => ({ id: p.id, label: p.name, icon: 'userF', photo: p.photo }))];
   const sumTxt = d.time ? `${esc(svcLabel(d.serviceIds))} &nbsp;•&nbsp; ${fDM(d.date)} às ${d.time}` : `${esc(svcLabel(d.serviceIds))} &nbsp;•&nbsp; <span class="ph">escolha um horário</span>`;
   return `<div class="scr bk">
   ${backBtn(editing ? 'perfil' : 'servicos')}
@@ -165,7 +166,7 @@ function vAgendar() {
             const miss = able ? '' : (svcNames(d.serviceIds.filter(i => !pro(p.id).services.includes(i)))[0] || '');
             return `<button class="pro ${on ? 'on' : ''} ${able ? '' : 'off'}" role="radio" aria-checked="${on}" ${able ? `data-act="pro" data-id="${p.id}"` : 'aria-disabled="true"'}>
               ${on ? `<span class="chk">${ic('check')}</span>` : ''}
-              <span class="av">${ic(p.icon)}</span><span class="lbl">${esc(p.label)}</span>${able ? '' : `<span class="why">Não realiza ${esc(miss.toLowerCase())}</span>`}
+              <span class="av">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : ic(p.icon)}</span><span class="lbl">${esc(p.label)}</span>${able ? '' : `<span class="why">Não realiza ${esc(miss.toLowerCase())}</span>`}
             </button>`;
           }).join('')}
         </div>

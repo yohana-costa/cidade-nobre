@@ -3,6 +3,7 @@ import cors from 'cors';
 import { config } from './config/env';
 import { logger } from './middleware/logger';
 import { errorHandler } from './middleware/errorHandler';
+import { uploadsDir } from './lib/storage';
 import { authRoutes, usuariosRoutes } from './routes/auth.routes';
 import publicoRoutes from './routes/publico.routes';
 import contaRoutes from './routes/conta.routes';
@@ -20,6 +21,9 @@ if (config.corsOrigins.length) {
 }
 app.use(express.json({ limit: '100kb' }));
 app.use(logger);
+
+// Fotos enviadas pela gestao (servicos e profissionais). O nome do arquivo muda a cada envio.
+app.use('/uploads', express.static(uploadsDir, { maxAge: '30d', immutable: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);

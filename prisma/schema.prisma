@@ -90,6 +90,7 @@ model Servico {
 model Profissional {
   id           String        @id @default(uuid())
   nome         String        @unique
+  foto         String? // /uploads/... enviada pela gestao; nulo = icone padrao
   ativo        Boolean       @default(true)
   ordem        Int           @default(0)
   servicos     Servico[]

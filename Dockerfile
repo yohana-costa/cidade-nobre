@@ -1,6 +1,6 @@
 # Imagem unica com dois alvos para a VPS (docker-compose.yml):
 #   api -> Express + Prisma (aplica as migrations ao subir)
-#   web -> nginx com o site estatico, repassando /api para a API
+#   web -> nginx com o site estatico, repassando /api e /uploads para a API
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
@@ -24,6 +24,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/build ./build
 COPY docker/entrypoint.sh ./entrypoint.sh
+# fotos enviadas pela gestao (volume no docker-compose)
+RUN mkdir -p ./uploads
 EXPOSE 3000
 ENTRYPOINT ["sh", "./entrypoint.sh"]
 

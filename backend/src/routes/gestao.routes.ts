@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as c from '../controllers/gestao.controller';
 import { authMiddleware, requireAdmin, requireGerente } from '../middleware/auth';
+import { upload } from '../middleware/upload';
 
 // Gestao da barbearia: toda rota exige login da equipe.
 // OPERADOR: agenda, clientes e listas. GERENTE: + servicos e equipe. ADMIN: + regras e usuarios.
@@ -27,9 +28,13 @@ router.get('/catalogo', c.catalogoGestao);
 router.post('/servicos', requireGerente, c.criarServico);
 router.put('/servicos/:id', requireGerente, c.atualizarServico);
 router.delete('/servicos/:id', requireGerente, c.removerServico);
+router.post('/servicos/:id/imagem', requireGerente, upload.single('imagem'), c.enviarImagemServico);
+router.delete('/servicos/:id/imagem', requireGerente, c.removerImagemServico);
 router.post('/profissionais', requireGerente, c.criarProfissional);
 router.put('/profissionais/:id', requireGerente, c.atualizarProfissional);
 router.delete('/profissionais/:id', requireGerente, c.removerProfissional);
+router.post('/profissionais/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoProfissional);
+router.delete('/profissionais/:id/foto', requireGerente, c.removerFotoProfissional);
 
 router.get('/configuracoes', c.obterConfiguracao);
 router.put('/configuracoes', requireAdmin, c.atualizarConfiguracao);

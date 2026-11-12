@@ -97,6 +97,23 @@ function setMode(mode, push) {
   saveUI(); render();
 }
 
+/* ---- fotos da gestão ---- */
+// Recarrega o catálogo da gestão e o do site e redesenha o formulário aberto com a foto nova.
+async function photoChanged() {
+  const d = await API.get('/gestao/catalogo', 'staff');
+  CACHE['cat-gestao'] = { data: d, at: Date.now() };
+  adminChanged(); await loadCatalog();
+  if (LAYER) { LAYER.keep = true; LAYER.v = formSnapshot(); renderLayer(); }
+  render(true);
+}
+// o que já foi digitado no formulário aberto (a foto vem do servidor)
+function formSnapshot() {
+  const g = id => document.getElementById(id);
+  if (g('in-sname')) return { name: val('in-sname'), desc: val('in-sdesc'), cat: val('in-scat'), dur: Number(val('in-dur')), price: Number(val('in-price')), visible: g('in-svis').checked };
+  if (g('in-pname')) return { name: val('in-pname') };
+  return null;
+}
+
 /* ---- pagamento online ---- */
 // Consulta o agendamento na API (que confere o pagamento no Mercado Pago) e atualiza a tela de confirmação.
 async function checkPayment(id) {
@@ -344,15 +361,24 @@ document.addEventListener('click', async e => {
       case 'svc-save': {
         const v = { name: val('in-sname'), desc: val('in-sdesc'), cat: val('in-scat'), img: val('in-simg'), dur: Math.round(Number(val('in-dur'))), price: Math.round(Number(val('in-price')) * 100) / 100, visible: document.getElementById('in-svis').checked };
         if (!(v.dur >= 5 && v.dur <= 240) || !(v.price >= 0 && v.price <= 2000)) { openLayer({ kind: 'svc-edit', id: D.id || null, v, err: 'Use duração entre 5 e 240 min e preço entre R$ 0 e R$ 2.000.' }); break; }
+        const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
         try {
-          if (D.id) await API.put(`/gestao/servicos/${D.id}`, v, 'staff'); else await API.post('/gestao/servicos', { ...v, proIds: DB.pros.map(p => p.id) }, 'staff');
+          if (D.id) await API.put(`/gestao/servicos/${D.id}`, v, 'staff');
+          else { const s = await API.post('/gestao/servicos', { ...v, proIds: DB.pros.map(p => p.id) }, 'staff'); if (pend.file) await API.upload(`/gestao/servicos/${s.id}/imagem`, pend.file, 'staff'); }
           closeLayer(); adminChanged(); await loadCatalog(); render(true); toast(`${v.name} salvo.`);
-        } catch (err) { openLayer({ kind: 'svc-edit', id: D.id || null, v, err: err.message }); }
+        } catch (err) { openLayer({ kind: 'svc-edit', id: D.id || null, v, err: err.message, ...pend }); }
         break;
       }
       case 'svc-del': {
         try { await API.del(`/gestao/servicos/${D.id}`, 'staff'); closeLayer(); adminChanged(); await loadCatalog(); UI.draft.serviceIds = UI.draft.serviceIds.filter(i => svc(i)); render(true); toast('Serviço removido do catálogo.'); }
         catch (err) { LAYER.confirmDel = false; LAYER.err = err.message; renderLayer(); }
+        break;
+      }
+      case 'photo-rm': {
+        // ainda nao salvo: so descarta a foto escolhida
+        if (!D.id) { if (LAYER.preview) URL.revokeObjectURL(LAYER.preview); LAYER.file = null; LAYER.preview = null; LAYER.keep = true; renderLayer(); break; }
+        try { await API.del(D.k === 'svc' ? `/gestao/servicos/${D.id}/imagem` : `/gestao/profissionais/${D.id}/foto`, 'staff'); await photoChanged(); toast('Foto removida.'); }
+        catch (err) { LAYER.err = err.message; renderLayer(); }
         break;
       }
       case 'pro-new': openLayer({ kind: 'pro-edit', id: null }); break;
@@ -361,10 +387,12 @@ document.addEventListener('click', async e => {
         const v = { name: val('in-pname') };
         const boxes = document.querySelectorAll('input[name="pro-svc"]');
         if (boxes.length) v.services = [...boxes].filter(x => x.checked).map(x => x.value);
+        const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
         try {
-          if (D.id) await API.put(`/gestao/profissionais/${D.id}`, v, 'staff'); else await API.post('/gestao/profissionais', v, 'staff');
+          if (D.id) await API.put(`/gestao/profissionais/${D.id}`, v, 'staff');
+          else { const p = await API.post('/gestao/profissionais', v, 'staff'); if (pend.file) await API.upload(`/gestao/profissionais/${p.id}/foto`, pend.file, 'staff'); }
           closeLayer(); adminChanged(); await loadCatalog(); render(true); toast(`${v.name} salvo.`);
-        } catch (err) { openLayer({ kind: 'pro-edit', id: D.id || null, v: { ...v, services: v.services || [] }, err: err.message }); }
+        } catch (err) { openLayer({ kind: 'pro-edit', id: D.id || null, v: { ...v, services: v.services || [] }, err: err.message, ...pend }); }
         break;
       }
       case 'pro-del': {
@@ -458,6 +486,19 @@ document.addEventListener('input', e => {
   if (t.name === 'na-svc' || t.name === 'pro-svc' || t.name === 'cf-closed') t.closest('.pchip')?.classList.toggle('on', t.checked);
 });
 document.addEventListener('change', async e => {
+  // foto de servico ou profissional (gestao)
+  if (e.target.dataset.up && e.target.files && e.target.files[0] && LAYER) {
+    const el = e.target, kind = el.dataset.up, id = el.dataset.id;
+    try {
+      const file = await reduzirImagem(el.files[0]);
+      if (file.size > 5 * 1024 * 1024) throw new Error('A imagem continua grande demais (limite de 5 MB).');
+      if (!id) { if (LAYER.preview) URL.revokeObjectURL(LAYER.preview); Object.assign(LAYER, { file, preview: URL.createObjectURL(file), keep: true, err: null }); renderLayer(); return; }
+      LAYER.err = null; toast('Enviando foto…', 'info');
+      await API.upload(kind === 'svc' ? `/gestao/servicos/${id}/imagem` : `/gestao/profissionais/${id}/foto`, file, 'staff');
+      await photoChanged(); toast('Foto atualizada. Já aparece no site.');
+    } catch (err) { el.value = ''; LAYER.err = err.message; LAYER.keep = true; renderLayer(); }
+    return;
+  }
   if (e.target.id === 'client-sort') { UI.clientSort = e.target.value; saveUI(); document.getElementById('client-results').innerHTML = vClientsList(); }
   if (e.target.dataset.userPerfil) {
     try { await API.put(`/usuarios/${e.target.dataset.userPerfil}`, { perfil: e.target.value }, 'staff'); invalidate('usuarios'); render(true); toast('Perfil atualizado.'); }

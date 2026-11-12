@@ -14,3 +14,5 @@ dist/
 
 # saida da compilacao da imagem Docker
 build/
+# fotos enviadas pela gestao (dev local)
+uploads/

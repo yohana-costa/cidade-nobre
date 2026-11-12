@@ -43,6 +43,9 @@ services:
       MERCADO_PAGO_TAXA_PLATAFORMA_PCT: ${MERCADO_PAGO_TAXA_PLATAFORMA_PCT:-2}
       DATABASE_URL: postgresql://cidadenobre:${POSTGRES_PASSWORD}@cidadenobre-postgres:5432/cidade_nobre?schema=public&connect_timeout=30
       DATABASE_URL_UNPOOLED: postgresql://cidadenobre:${POSTGRES_PASSWORD}@cidadenobre-postgres:5432/cidade_nobre?schema=public&connect_timeout=30
+    # fotos de servicos e profissionais enviadas pela gestao
+    volumes:
+      - cidadenobre_uploads:/app/uploads
     networks:
       - cidadenobre_network
 
@@ -59,6 +62,7 @@ services:
 
 volumes:
   cidadenobre_postgres_data:
+  cidadenobre_uploads:
 
 networks:
   cidadenobre_network:

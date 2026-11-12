@@ -34,4 +34,36 @@ const API = {
   put(p, b, auth) { return this.req('PUT', p, b || {}, auth); },
   patch(p, b, auth) { return this.req('PATCH', p, b || {}, auth); },
   del(p, auth) { return this.req('DELETE', p, undefined, auth); },
+  // envio de foto (multipart); o navegador monta o Content-Type com o boundary
+  async upload(p, file, auth) {
+    const fd = new FormData(); fd.append('imagem', file);
+    const headers = { Accept: 'application/json' };
+    const t = auth ? this.token(auth) : '';
+    if (t) headers.Authorization = 'Bearer ' + t;
+    let r;
+    try { r = await fetch(this.base + p, { method: 'POST', headers, body: fd }); }
+    catch (e) { throw Object.assign(new Error('Sem conexão com o servidor. Verifique sua internet e tente de novo.'), { status: 0 }); }
+    let data = null;
+    try { data = await r.json(); } catch (e) { data = null; }
+    if (!r.ok) throw Object.assign(new Error((data && data.error) || 'Erro ' + r.status + '. Tente de novo.'), { status: r.status, data });
+    return data;
+  },
 };
+
+/* Reduz a foto no navegador antes do envio: até 1400 px, JPEG ~0,84. */
+function reduzirImagem(file, max = 1400, quality = 0.84) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { reject(new Error('Use uma imagem JPG, PNG ou WEBP.')); return; }
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, max / Math.max(im.width, im.height));
+      const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? resolve(new File([b], (file.name || 'foto').replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })) : reject(new Error('Não foi possível ler a imagem.')), 'image/jpeg', quality);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a imagem.')); };
+    im.src = url;
+  });
+}
