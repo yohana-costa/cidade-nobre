@@ -459,7 +459,9 @@ document.addEventListener('click', async e => {
       }
       case 'pw-save': {
         e.preventDefault();
-        try { await API.post('/usuarios/senha', { senhaAtual: document.getElementById('pw-cur').value, novaSenha: document.getElementById('pw-new').value }, 'staff'); document.getElementById('pw-cur').value = ''; document.getElementById('pw-new').value = ''; toast('Senha alterada.'); }
+        // sem a confirmacao, um erro de digitacao trancava a gestao com uma senha que ninguem sabe
+        if (document.getElementById('pw-new').value !== document.getElementById('pw-new2').value) { toast('As duas novas senhas não são iguais. Digite de novo.', 'alert'); break; }
+        try { await API.post('/usuarios/senha', { senhaAtual: document.getElementById('pw-cur').value, novaSenha: document.getElementById('pw-new').value }, 'staff'); ['pw-cur', 'pw-new', 'pw-new2'].forEach(k => { document.getElementById(k).value = ''; }); toast('Senha alterada. Use a nova senha no próximo login.'); }
         catch (err) { toast(err.message, 'alert'); }
         break;
       }

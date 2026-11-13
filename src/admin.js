@@ -440,7 +440,7 @@ function vConfig() {
   </div></section>
   ${users}
   <section class="panel"><div class="panel-h"><h2>Minha senha</h2><span class="note">${esc(STAFF.nome)} · ${esc(STAFF.email)}</span></div><div class="panel-b">
-    <form class="form" id="pw-form" style="margin-top:0" novalidate><div class="fld-row"><div class="fld"><label for="pw-cur">Senha atual</label><input id="pw-cur" type="password" autocomplete="current-password"></div><div class="fld"><label for="pw-new">Nova senha</label><input id="pw-new" type="password" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"></div></div>
+    <form class="form" id="pw-form" style="margin-top:0" novalidate><div class="fld-row"><div class="fld"><label for="pw-cur">Senha atual</label><input id="pw-cur" type="password" autocomplete="current-password"></div><div class="fld"><label for="pw-new">Nova senha</label><input id="pw-new" type="password" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"></div><div class="fld"><label for="pw-new2">Repita a nova senha</label><input id="pw-new2" type="password" autocomplete="new-password"></div></div>
     <div><button class="btn btn-line btn-sm" data-act="pw-save">Alterar senha</button></div></form>
   </div></section>`;
 }
