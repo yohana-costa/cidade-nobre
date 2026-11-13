@@ -471,6 +471,16 @@ document.addEventListener('click', async e => {
     toast(err.message || 'Algo deu errado. Tente de novo.', 'alert');
   }
 });
+// O catalogo so vinha na abertura: quem deixava o site aberto no celular nao via foto, preco
+// ou servico novo da gestao. Ao voltar para a aba, busca de novo (no maximo a cada 30 s).
+let catalogAt = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || LAYER || Date.now() - catalogAt < 30000) return;
+  catalogAt = Date.now();
+  await loadCatalog();
+  UI.draft.serviceIds = UI.draft.serviceIds.filter(i => svc(i));
+  if (!LAYER) render(true, true);
+});
 // keyboard access for clickable table rows
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && LAYER) { closeLayer(); return; }
