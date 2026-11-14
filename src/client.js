@@ -102,7 +102,7 @@ function vServicos() {
         ${list.length ? list.map(s => {
           const on = d.serviceIds.includes(s.id);
           return `<button class="svc-item ${on ? 'on' : ''}" data-act="svc-toggle" data-id="${s.id}" aria-pressed="${on}">
-            <span class="svc-thumb"><img src="${img(s.img)}" alt="" loading="lazy"></span>
+            <span class="svc-thumb${s.img && s.img.startsWith('/uploads/') ? ' up' : ''}"><img src="${img(s.img)}" alt="" loading="lazy"></span>
             <span class="svc-txt"><b>${esc(s.name)}</b><small>${esc(s.desc)}${s.desc ? ' · ' : ''}${s.dur} min · ${money(s.price)}</small></span>
             <span class="svc-tog"><span>${ic(on ? 'check' : 'plus')}</span></span>
           </button>`;
