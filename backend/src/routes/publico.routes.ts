@@ -5,6 +5,7 @@ import { clienteOpcional } from '../middleware/auth';
 // Site do cliente: nao exige login
 const router = Router();
 router.get('/catalogo', c.catalogoPublico);
+router.get('/vitrine', c.vitrine);
 router.get('/disponibilidade', clienteOpcional, c.disponibilidade);
 router.get('/indicacao/:codigo', c.indicacao);
 router.post('/agendamentos', clienteOpcional, c.agendar);

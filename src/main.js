@@ -29,6 +29,7 @@ function render(keepScroll, background) {
   $app.innerHTML = !DB.loaded ? vBoot() : UI.mode === 'admin' ? vAdmin() : vClient();
   if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
   renderLayer();
+  vitBars();
   if (snap) restoreInputs(snap);
   if (UI.hl && !background) { const el = document.querySelector('.blk.hl, .ag-card.hl'); if (el) setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 120); setTimeout(() => { UI.hl = null; }, 3000); }
 }
@@ -183,6 +184,7 @@ document.addEventListener('click', async e => {
       case 'to-admin': e.preventDefault(); await loadStaff(); setMode('admin', true); break;
       case 'to-site': e.preventDefault(); setMode('client', true); break;
       case 'start-booking': startBooking(); break;
+      case 'vit-sub': VIT_SUB = D.sub; render(true); break;
       case 'scroll-exp': document.getElementById('experiencia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
       case 'cat': UI.cat = D.cat; go('servicos'); break;
       case 'cat-filter': UI.cat = D.cat; saveUI(); render(true); break;
@@ -516,11 +518,13 @@ let catalogAt = Date.now();
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden || LAYER || Date.now() - catalogAt < 30000) return;
   catalogAt = Date.now();
-  await loadCatalog();
+  await Promise.all([loadCatalog(), loadVitrine()]);
   UI.draft.serviceIds = UI.draft.serviceIds.filter(i => svc(i));
   if (!LAYER) render(true, true);
 });
 // keyboard access for clickable table rows
+document.addEventListener('scroll', e => { if (e.target.classList && e.target.classList.contains('vit-track')) vitBars(); }, true);
+window.addEventListener('resize', vitBars);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && LAYER) { closeLayer(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr.click')) { e.preventDefault(); e.target.click(); }
@@ -602,6 +606,8 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   if (mpVolta) UI.admin = 'config';
   UI.hl = null; UI.confirmAct = null; UI.staffErr = null; UI.authErr = null; UI.cfgErr = null;
   render();
+  // a vitrine chega depois e redesenha o inicio sem travar a abertura do site
+  const vit = loadVitrine();
   await Promise.all([loadCatalog(), loadMe(), UI.mode === 'admin' ? loadStaff() : Promise.resolve()]);
   if (pg) {
     try { await checkPayment(pg[1]); UI.screen = 'confirmado'; UI.mode = 'client'; }
@@ -615,6 +621,7 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   if (UI.screen === 'agendar' && !UI.draft.serviceIds.length) UI.screen = 'servicos';
   saveUI();
   render();
+  vit.then(() => { if (UI.mode === 'client' && UI.screen === 'home' && !LAYER && DB.loaded) render(true, true); });
   if (ref) {
     try { const r = await API.get(`/publico/indicacao/${encodeURIComponent(ref)}`); toast(`Você foi indicado por ${r.firstName}. Agende seu primeiro horário.`, 'userPlus'); }
     catch (e) { if (e.status === 404) { UI.refCode = null; saveUI(); } }

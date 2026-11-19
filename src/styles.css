@@ -811,3 +811,52 @@ button.sim .ic{width:14px;height:14px}
 button.sim::before{display:none}
 .fld input[type=checkbox]{width:auto;height:auto;padding:0}
 .auth-wrap{max-width:440px;margin:0 auto;padding-top:calc(40px + env(safe-area-inset-top,0px))}
+
+/* ---------- vitrine do início: acessórios Kauan Cell + produtos da casa ---------- */
+.vit{margin-top:calc(26 * var(--u))}
+.vit-cel{--kc:#f2c230}
+.vit-head{display:flex;align-items:center;gap:calc(12 * var(--u))}
+.vit-logo{flex:none;width:calc(84 * var(--u));min-width:64px}
+.vit-logo img{display:block;width:100%;height:auto}
+.vit-tt{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch}
+.vit-tt h2{font-family:var(--serif);font-weight:650;color:var(--cream);font-size:calc(23 * var(--u));line-height:1.1;margin:calc(4 * var(--u)) 0 0;letter-spacing:-.01em}
+.vit-all{align-self:flex-end;display:inline-flex;align-items:center;gap:6px;color:var(--kc);font-size:13px;text-decoration:none;padding:6px 0}
+.vit-all .ic{width:15px;height:15px}
+.vit-tt::before{content:"";height:1px;background:linear-gradient(90deg,rgba(242,194,48,.7),rgba(242,194,48,0));order:1;margin-top:calc(-2 * var(--u))}
+.vit-tt h2{order:2}
+.vit-chips{display:flex;flex-wrap:wrap;gap:8px;margin:calc(14 * var(--u)) 0 calc(14 * var(--u))}
+.vit-chip{border:1px solid rgba(242,194,48,.55);border-radius:999px;padding:7px 16px;color:var(--cream);font-size:13.5px;background:transparent;min-height:34px}
+.vit-chip.on{background:var(--kc);border-color:var(--kc);color:#14120e;font-weight:600}
+.vit-track{display:flex;gap:calc(10 * var(--u));overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 calc(-1 * var(--gr)) 0 0;padding-right:var(--gr)}
+.vit-track::-webkit-scrollbar{display:none}
+.vit-card{flex:0 0 calc(150 * var(--u));min-width:136px;scroll-snap-align:start;border:1px solid var(--gold-dim);border-radius:var(--r);background:var(--panel);overflow:hidden;display:flex;flex-direction:column;text-decoration:none;color:var(--cream)}
+.vit-cel .vit-card{border-color:rgba(242,194,48,.35)}
+.vit-img{aspect-ratio:1;background:#fff;display:grid;place-items:center;overflow:hidden}
+.vit-img img{width:100%;height:100%;object-fit:contain;transition:transform .5s ease}
+.vit-card:hover .vit-img img{transform:scale(1.04)}
+.vit-ph{width:100%;height:100%;display:grid;place-items:center;background:#1d1b18;color:var(--gold)}
+.vit-ph .ic{width:34px;height:34px}
+.vit-info{padding:10px 11px 11px;display:flex;flex-direction:column;gap:6px;flex:1}
+.vit-name{font-size:13px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+.vit-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto}
+.vit-price{font-family:var(--serif);font-size:16px;color:var(--cream);font-weight:650}
+.vit-price small{display:block;font-family:inherit;font-size:10.5px;color:var(--muted);font-weight:400}
+.vit-casa .vit-price{color:var(--gold)}
+.vit-go{flex:none;width:28px;height:28px;border:1px solid var(--kc);border-radius:6px;display:grid;place-items:center;color:var(--kc)}
+.vit-go .ic{width:15px;height:15px}
+.vit-bar{position:relative;height:4px;border-radius:4px;background:rgba(255,255,255,.12);margin:calc(14 * var(--u)) auto 0;width:68%;overflow:hidden}
+.vit-bar[hidden]{display:none}
+.vit-bar i{position:absolute;top:0;bottom:0;left:0;border-radius:4px;background:var(--kc,var(--gold))}
+.vit-note{color:var(--muted);font-size:13px;text-align:center;margin:10px 0 14px}
+@media (min-width:960px){
+  .vit{margin-top:56px}
+  .vit-logo{width:104px}
+  .vit-tt h2{font-size:34px}
+  .vit-all{font-size:14px}
+  .vit-track{margin-right:0;padding-right:0;gap:16px}
+  .vit-card{flex-basis:220px}
+  .vit-name{font-size:14px}
+  .vit-price{font-size:18px}
+  .vit-bar{width:40%}
+  .vit-note{margin-bottom:22px}
+}

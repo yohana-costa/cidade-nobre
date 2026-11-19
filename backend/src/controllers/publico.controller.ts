@@ -6,8 +6,11 @@ import { falha } from '../lib/erros';
 import * as catalogo from '../services/catalogo.service';
 import * as agenda from '../services/agenda.service';
 import * as pagamentos from '../services/pagamentos.service';
+import * as vitrineSvc from '../services/vitrine.service';
 
 export const catalogoPublico = h(() => catalogo.catalogoPublico());
+// acessorios da loja do Doutor + produtos do estoque da barbearia, no inicio do site
+export const vitrine = h(() => vitrineSvc.vitrine());
 
 // "ignore" so vale para quem esta logado e e dono do agendamento sendo alterado
 export const disponibilidade = h<AuthRequest>(async (req) => {

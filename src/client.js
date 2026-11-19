@@ -75,7 +75,59 @@ function vHome() {
         ${ic('right', 'chev')}
       </button>
     </section>
+    ${vVitrine()}
   </div></div>`;
+}
+
+/* ---------- Vitrine: acessórios do Doutor (Kauan Cell) e produtos da barbearia ---------- */
+let VIT_SUB = 'all';
+function vitTrack(cards) {
+  return `<div class="vit-track">${cards}</div><div class="vit-bar" aria-hidden="true"><i></i></div>`;
+}
+function vVitrine() {
+  if (!VIT) return '';
+  let out = '';
+  const c = VIT.celular;
+  if (c && c.items.length) {
+    const sub = c.subs.some(s => s.id === VIT_SUB) ? VIT_SUB : 'all';
+    const list = sub === 'all' ? c.items : c.items.filter(i => i.sub === sub);
+    out += `<section class="vit vit-cel wrap" aria-labelledby="vit-cel-t">
+      <div class="vit-head">
+        <a class="vit-logo" href="${esc(c.url)}" target="_blank" rel="noopener" aria-label="Loja Kauan Cell"><img src="${esc(c.logo)}" alt="Kauan Cell" width="190" height="170" loading="lazy"></a>
+        <div class="vit-tt"><a class="vit-all" href="${esc(c.url)}" target="_blank" rel="noopener">Ver catálogo ${ic('arrow')}</a><h2 id="vit-cel-t">Acessórios para celular</h2></div>
+      </div>
+      <div class="vit-chips" role="group" aria-label="Filtrar acessórios">${[{ id: 'all', label: 'Todos' }, ...c.subs].map(s => `<button class="vit-chip ${s.id === sub ? 'on' : ''}" data-act="vit-sub" data-sub="${esc(s.id)}" aria-pressed="${s.id === sub}">${esc(s.label)}</button>`).join('')}</div>
+      ${vitTrack(list.map(i => `<a class="vit-card" href="${esc(i.url)}" target="_blank" rel="noopener">
+        <div class="vit-img"><img src="${esc(i.image)}" alt="" loading="lazy"></div>
+        <div class="vit-info"><span class="vit-name">${esc(i.name)}</span><span class="vit-foot"><span class="vit-price tnum">${i.from ? '<small>a partir de</small> ' : ''}${money(i.price)}</span><span class="vit-go">${ic('arrow')}</span></span></div>
+      </a>`).join(''))}
+    </section>`;
+  }
+  const b = VIT.barbearia || [];
+  if (b.length) {
+    out += `<section class="vit vit-casa wrap" aria-labelledby="vit-casa-t">
+      <div class="lined"><h2 id="vit-casa-t">Produtos da casa</h2></div>
+      <p class="vit-note">Peça ao seu barbeiro no dia do atendimento.</p>
+      ${vitTrack(b.map(p => `<div class="vit-card">
+        <div class="vit-img">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : `<span class="vit-ph">${ic('box')}</span>`}</div>
+        <div class="vit-info"><span class="vit-name">${esc(p.name)}</span><span class="vit-foot"><span class="vit-price tnum">${money(p.price)}</span></span></div>
+      </div>`).join(''))}
+    </section>`;
+  }
+  return out;
+}
+// barrinha de progresso embaixo do carrossel
+function vitBars() {
+  document.querySelectorAll('.vit-track').forEach(t => {
+    const bar = t.nextElementSibling; if (!bar) return;
+    const over = t.scrollWidth - t.clientWidth;
+    bar.hidden = over < 4;
+    if (over < 4) return;
+    const w = t.clientWidth / t.scrollWidth;
+    const i = bar.firstElementChild;
+    i.style.width = (w * 100) + '%';
+    i.style.left = ((t.scrollLeft / over) * (1 - w) * 100) + '%';
+  });
 }
 
 /* ---------- Serviços ---------- */

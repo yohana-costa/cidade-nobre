@@ -72,6 +72,12 @@ async function loadCatalog() {
   try { applyCatalog(await API.get('/publico/catalogo')); }
   catch (e) { DB.error = e.message; }
 }
+// vitrine do inicio: acessorios da loja do Doutor (Kauan Cell) e produtos do estoque da barbearia.
+// Carrega depois do catalogo e nao trava o site: se falhar, o inicio fica sem a vitrine.
+let VIT = null;
+async function loadVitrine() {
+  try { VIT = await API.get('/publico/vitrine'); VER++; } catch (e) { /* segue sem vitrine */ }
+}
 async function loadMe() {
   if (!API.token('client')) { ME = null; return; }
   try { ME = await API.get('/conta', 'client'); if (ME.today) SERVER_TODAY = ME.today; }
