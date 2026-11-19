@@ -120,7 +120,7 @@ input,select,textarea{font:inherit;color:inherit}
 /* HOME */
 .home-bar{position:relative;z-index:4;height:calc(39 * var(--u));background:#0c0d0f;display:flex;justify-content:flex-end;align-items:center;padding-right:calc(var(--gr) - 6px)}
 /* logo no topo, centralizada e maior, com frase e endereco embaixo (pedido da barbearia) */
-.home .crest{left:50%;transform:translateX(-50%);top:calc(9 * var(--u));width:calc(124 * var(--u))}
+.home .crest{left:50%;transform:translateX(-50%);top:calc(62 * var(--u));width:calc(124 * var(--u))}
 .home .home-sign{width:auto;display:flex;flex-direction:column;align-items:center}
 .home-sign-d{display:none}
 .home .home-sign>img{width:calc(124 * var(--u))}
@@ -438,7 +438,7 @@ input,select,textarea{font:inherit;color:inherit}
   .home .hero-media::after{background:linear-gradient(180deg,rgba(11,11,12,0) 70%,rgba(11,11,12,.55))}
   .home-copy{margin-top:0;order:1}
   .home .home-sign{display:none}
-  .home-sign-d{align-self:center;display:flex;flex-direction:column;align-items:center;margin-bottom:22px}
+  .home-sign-d{align-self:center;display:flex;flex-direction:column;align-items:center;margin:24px 0 22px}
   .home-sign-d .crest-d{margin-bottom:0}
   .home-sign-d .crest-cap{margin-top:10px;gap:8px}
   .home-sign-d .crest-tag{font-size:22px}
