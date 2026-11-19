@@ -38,6 +38,7 @@ const ICONS = {
   store: '<path d="M4 10v10h16V10M3 10l2-6h14l2 6zM9 20v-6h6v6"/>',
   box: '<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',
   minus: '<path d="M5 12h14"/>',
+  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
   alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.3v.1"/>',
   trend: '<path d="m3.5 16.5 5-5 4 4 8-8M15 7.5h5.5V13"/>',
   msg: '<path d="M4 5.5h16v10H9l-5 4z"/>',

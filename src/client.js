@@ -4,6 +4,10 @@ const A = window.ASSETS || {};
 const img = k => (k && k.startsWith('/uploads/') ? k : A[k] || A.cat_cabelo);
 const crest = (cls) => `<div class="crest ${cls}"><img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"></div>`;
 const crestD = (w) => `<div class="crest-d" style="width:${w}px"><img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"></div>`;
+// frase e endereco embaixo da logo do inicio (pedido da barbearia); o endereco abre o mapa
+const ADDRESS = 'Rua Coelho Lisboa, 551 · Tatuapé';
+const MAPS = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Rua Coelho Lisboa, 551, Tatuapé, São Paulo');
+const crestCap = () => `<div class="crest-cap"><span class="crest-tag">Barbearia dos Artistas</span><a class="crest-addr" href="${MAPS}" target="_blank" rel="noopener">${ic('pin')}${ADDRESS}</a></div>`;
 const lockup = (h = 44) => `<img src="${A.lockup}" alt="Cidade Nobre, Barbearia Premium" style="height:${h}px;width:auto" width="735" height="184">`;
 
 // estados de carregamento e erro dentro do layout existente
@@ -44,12 +48,12 @@ function vHome() {
   const cats = DB.categories.map(c => { const h = HOME_CATS.find(x => x[0] === c.id); return [c.id, c.name, h ? h[1] : 'scissors', h ? h[2] : 'cat_cabelo', h ? h[3] : c.name]; });
   return `<div class="scr home">
   <div class="home-bar"><button class="menu-btn" data-act="menu" aria-label="Abrir menu">${ic('menu')}</button></div>
-  ${crest('m-only')}
+  <div class="crest home-sign m-only"><img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229">${crestCap()}</div>
   <div class="d-page">
     <section class="hero">
       <div class="hero-media"><img src="${A.hero_home}" alt="Salão da Cidade Nobre com cadeiras de couro e espelhos iluminados" width="759" height="804"></div>
       <div class="home-copy">
-        ${crestD(170)}
+        <div class="home-sign-d">${crestD(170)}${crestCap()}</div>
         <div class="eyebrow">Cidade Nobre</div>
         <h1 class="htitle">Seu estilo.<br>Seu lugar.</h1>
         <p class="home-sub">Cuidado completo. Presença em cada detalhe.</p>

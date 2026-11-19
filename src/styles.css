@@ -119,8 +119,20 @@ input,select,textarea{font:inherit;color:inherit}
 
 /* HOME */
 .home-bar{position:relative;z-index:4;height:calc(39 * var(--u));background:#0c0d0f;display:flex;justify-content:flex-end;align-items:center;padding-right:calc(var(--gr) - 6px)}
-/* logo no topo, centralizada e maior (pedido da barbearia) */
+/* logo no topo, centralizada e maior, com frase e endereco embaixo (pedido da barbearia) */
 .home .crest{left:50%;transform:translateX(-50%);top:calc(9 * var(--u));width:calc(124 * var(--u))}
+.home .home-sign{width:auto;display:flex;flex-direction:column;align-items:center}
+.home-sign-d{display:none}
+.home .home-sign>img{width:calc(124 * var(--u))}
+/* sombra suave atras da frase e do endereco para ler bem em cima da foto */
+.home .home-sign::before{content:"";position:absolute;left:-30%;right:-30%;top:40%;bottom:-12%;z-index:-1;background:radial-gradient(ellipse at 50% 60%,rgba(8,8,8,.7),rgba(8,8,8,0) 70%)}
+.home .home-sign .crest-tag{text-shadow:0 0 14px #000,0 1px 3px #000}
+.crest-cap{display:flex;flex-direction:column;align-items:center;gap:calc(5 * var(--u));margin-top:calc(4 * var(--u));text-align:center;white-space:nowrap}
+.crest-tag{font-family:var(--serif);font-style:italic;font-weight:600;font-size:calc(17 * var(--u));color:var(--gold-hi);letter-spacing:.01em;text-shadow:0 2px 10px rgba(0,0,0,.85)}
+.crest-tag::before,.crest-tag::after{content:"";display:inline-block;vertical-align:middle;width:calc(16 * var(--u));height:1px;background:var(--gold-dim);margin:0 calc(8 * var(--u))}
+.crest-addr{display:inline-flex;align-items:center;gap:5px;font-size:calc(11.5 * var(--u));color:var(--cream);letter-spacing:.02em;padding:calc(4 * var(--u)) calc(10 * var(--u));border-radius:999px;background:rgba(10,10,10,.55);border:1px solid rgba(211,168,101,.28);backdrop-filter:blur(3px);text-decoration:none}
+.crest-addr .ic{width:13px;height:13px;color:var(--gold);flex:none}
+.crest-addr:hover{border-color:var(--gold-dim)}
 .home .hero-media{margin-top:0}
 .home-copy{position:relative;z-index:3;margin-top:calc(-121 * var(--u));display:flex;flex-direction:column}
 .home-copy .eyebrow{display:flex;align-items:center;gap:calc(10 * var(--u));padding-left:calc(26 * var(--u));letter-spacing:.5em;font-size:calc(8.4 * var(--u))}
@@ -425,7 +437,12 @@ input,select,textarea{font:inherit;color:inherit}
   .home .hero-media img{height:100%;object-fit:cover}
   .home .hero-media::after{background:linear-gradient(180deg,rgba(11,11,12,0) 70%,rgba(11,11,12,.55))}
   .home-copy{margin-top:0;order:1}
-  .home-copy .crest-d{align-self:center}
+  .home .home-sign{display:none}
+  .home-sign-d{align-self:center;display:flex;flex-direction:column;align-items:center;margin-bottom:22px}
+  .home-sign-d .crest-d{margin-bottom:0}
+  .home-sign-d .crest-cap{margin-top:10px;gap:8px}
+  .home-sign-d .crest-tag{font-size:22px}
+  .home-sign-d .crest-addr{font-size:13px;padding:5px 12px}
   .home-copy .eyebrow{padding-left:2px;font-size:11px}
   .home-copy .eyebrow::after{width:40px}
   .home-copy .htitle{font-size:78px;padding-left:0;margin-top:14px}
