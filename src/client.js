@@ -49,7 +49,7 @@ function vHome() {
     <section class="hero">
       <div class="hero-media"><img src="${A.hero_home}" alt="Salão da Cidade Nobre com cadeiras de couro e espelhos iluminados" width="759" height="804"></div>
       <div class="home-copy">
-        ${crestD(118)}
+        ${crestD(170)}
         <div class="eyebrow">Cidade Nobre</div>
         <h1 class="htitle">Seu estilo.<br>Seu lugar.</h1>
         <p class="home-sub">Cuidado completo. Presença em cada detalhe.</p>

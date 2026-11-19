@@ -4,11 +4,12 @@ const ANAV = [
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
   { id: 'clientes', label: 'Clientes', icon: 'users' },
   { id: 'servicos', label: 'Serviços e equipe', icon: 'scissors' },
+  { id: 'estoque', label: 'Estoque', icon: 'box' },
   { id: 'fidelidade', label: 'Fidelidade', icon: 'crown' },
   { id: 'oportunidades', label: 'Oportunidades', icon: 'target' },
   { id: 'config', label: 'Configurações', icon: 'edit' },
 ];
-const ATITLE = { dash: ['Visão geral', 'Indicadores calculados a partir da agenda'], agenda: ['Agenda', 'Atendimentos por dia e profissional'], clientes: ['Clientes', 'Histórico, frequência e pontos de cada cliente'], servicos: ['Serviços e equipe', 'Catálogo, durações, preços e quem realiza cada serviço'], fidelidade: ['Clube Cidade Nobre', 'Saldos, movimentações, benefícios e indicações'], oportunidades: ['Oportunidades de retorno', 'Clientes que pedem uma ação de relacionamento'], config: ['Configurações', 'Regras do clube, funcionamento, agenda e equipe de acesso'] };
+const ATITLE = { dash: ['Visão geral', 'Indicadores calculados a partir da agenda'], agenda: ['Agenda', 'Atendimentos por dia e profissional'], clientes: ['Clientes', 'Histórico, frequência e pontos de cada cliente'], servicos: ['Serviços e equipe', 'Catálogo, durações, preços e quem realiza cada serviço'], estoque: ['Estoque', 'Produtos à venda, entradas, vendas e reposição'], fidelidade: ['Clube Cidade Nobre', 'Saldos, movimentações, benefícios e indicações'], oportunidades: ['Oportunidades de retorno', 'Clientes que pedem uma ação de relacionamento'], config: ['Configurações', 'Regras do clube, funcionamento, agenda e equipe de acesso'] };
 const PERFIS = { ADMIN: 'Administrador', GERENTE: 'Gerente', OPERADOR: 'Operador' };
 const canManage = () => STAFF && ['ADMIN', 'GERENTE'].includes(STAFF.perfil);
 const isAdmin = () => STAFF && STAFF.perfil === 'ADMIN';
@@ -315,7 +316,7 @@ function vSvcEdit(id, L) {
   <div class="modal-f">${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Remover</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="svc-save" data-id="${id || ''}">Salvar</button></div></div>`;
 }
 function photoField(kind, id, src, hasUpload, round) {
-  return `<div class="fld"><label>Foto${kind === 'svc' ? '<em>aparece no site para o cliente</em>' : ''}</label><div class="photo-up">${src ? `<img class="${round ? 'round' : ''}" src="${esc(src)}" alt="">` : `<span class="photo-ph ${round ? 'round' : ''}">${ic(kind === 'svc' ? 'scissors' : 'userF')}</span>`}
+  return `<div class="fld"><label>Foto${kind === 'svc' ? '<em>aparece no site para o cliente</em>' : ''}</label><div class="photo-up">${src ? `<img class="${round ? 'round' : ''}" src="${esc(src)}" alt="">` : `<span class="photo-ph ${round ? 'round' : ''}">${ic(kind === 'svc' ? 'scissors' : kind === 'prod' ? 'box' : 'userF')}</span>`}
     <div class="photo-acts"><label class="btn btn-line btn-sm" for="up-photo">${ic('plus')} ${hasUpload ? 'Trocar foto' : 'Enviar foto'}</label><input id="up-photo" class="sr" type="file" accept="image/jpeg,image/png,image/webp" data-up="${kind}" data-id="${id || ''}">${hasUpload ? `<button type="button" class="link" data-act="photo-rm" data-k="${kind}" data-id="${id || ''}">Remover foto</button>` : ''}</div></div>
     <p class="note" style="margin-top:6px">JPG, PNG ou WEBP. A foto é reduzida antes do envio.</p></div>`;
 }
@@ -332,6 +333,89 @@ function vProEdit(id, L) {
     ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
   </form>${L.confirmDel ? `<div class="confirm-box"><p>Remover ${esc(p.name)} da equipe? Ele deixa de aparecer no agendamento. O histórico continua.</p><div class="row"><button class="btn btn-ghost btn-sm" data-act="svc-del-cancel">Voltar</button><button class="btn btn-gold btn-sm" data-act="pro-del" data-id="${id}">Remover profissional</button></div></div>` : ''}`,
   `${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Remover</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="pro-save" data-id="${id || ''}">Salvar</button>`);
+}
+
+/* ---------- Estoque (produtos vendidos no balcão, no modelo do Doutor do Celular) ---------- */
+const STK_ST = { ok: ['Disponível', 'st-concluido'], baixo: ['Estoque baixo', 'st-confirmado'], esgotado: ['Esgotado', 'st-cancelado'] };
+const STK_MOV = { entrada: ['Entrada', 'st-agendado'], venda: ['Venda', 'st-concluido'], ajuste: ['Ajuste', 'st-confirmado'] };
+const stkPill = p => `<span class="pill ${STK_ST[p.status][1]}">${STK_ST[p.status][0]}</span>`;
+const prodThumb = p => p.photo ? `<img src="${esc(p.photo)}" alt="">` : `<span class="prod-ph">${ic('box')}</span>`;
+function stkRows(E) {
+  const q = (UI.stkQ || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return E.products.filter(p => (UI.stkSit === 'repor' ? p.status !== 'ok' : true) && (!q || (p.name + ' ' + p.desc).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
+}
+function vStockList(E) {
+  const rows = stkRows(E);
+  const can = canManage();
+  if (!E.products.length) return `<div class="empty">Nenhum produto cadastrado ainda.${can ? ' Use "Novo produto" para colocar a pomada, o shampoo e o que mais a barbearia vende.' : ''}</div>`;
+  if (!rows.length) return `<div class="empty">Nenhum produto ${UI.stkQ ? `para “${esc(UI.stkQ)}”` : 'neste filtro'}.</div>`;
+  const acts = p => `<button class="btn btn-gold btn-sm" data-act="stk-move" data-id="${p.id}" data-t="venda" ${p.qty ? '' : 'disabled'}>Vender</button><button class="btn btn-line btn-sm" data-act="stk-move" data-id="${p.id}" data-t="entrada">${ic('plus')} Entrada</button>${can ? `<button class="link" data-act="prod-edit" data-id="${p.id}">Editar</button>` : ''}`;
+  return `<div class="desk-only"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Produto</th><th class="r">Preço</th><th class="r">Em estoque</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${rows.map(p => `<tr><td><div class="svc-cell prod-cell">${prodThumb(p)}<span><span class="nm">${esc(p.name)}</span><span class="sm">${esc(p.desc)}${p.desc ? ' · ' : ''}aviso com ${p.min} ou menos</span></span></div></td><td class="r">${money(p.price)}</td><td class="r"><span class="stk-n ${p.status}">${num(p.qty)}</span></td><td>${stkPill(p)}</td><td class="r"><div class="stk-acts">${acts(p)}</div></td></tr>`).join('')}
+  </tbody></table></div></div>
+  <div class="mobile-only"><div class="ccards">${rows.map(p => `<div class="prod-card"><div class="prod-top">${prodThumb(p)}<span style="min-width:0"><span class="nm" style="display:block">${esc(p.name)}</span><span class="ds" style="display:block">${money(p.price)} · ${stkPill(p)}</span></span><span class="stk-n ${p.status}">${num(p.qty)}<small>un.</small></span></div><div class="stk-acts">${acts(p)}</div></div>`).join('')}</div></div>`;
+}
+function vEstoque() {
+  const { d: E, wait } = load('estoque', '/gestao/estoque');
+  const can = canManage();
+  const tab = UI.stkTab || 'produtos';
+  const toolbar = `<div class="toolbar"><div class="seg2">${[['produtos', 'Produtos'], ['movs', 'Movimentações']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-act="stktab" data-k="${k}">${l}</button>`).join('')}</div>
+    ${can ? `<button class="btn btn-gold btn-sm" data-act="prod-new">${ic('plus')} Novo produto</button>` : '<span class="note">Somente gerentes e administradores cadastram produtos. Qualquer pessoa da equipe registra vendas e entradas.</span>'}</div>`;
+  if (!E) return toolbar + wait;
+  const K = E.kpis;
+  const kpi = (k, icon, v, d, lead) => `<div class="kpi ${lead ? 'lead' : ''}"><span class="k">${ic(icon)}${k}</span><span class="v">${v}</span><span class="d">${d}</span></div>`;
+  let body;
+  if (tab === 'movs') {
+    body = E.moves.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th class="r">Quantidade</th><th class="r">Saldo</th><th class="r">Valor</th><th>Quem / motivo</th></tr></thead><tbody>${E.moves.map(m => `<tr><td>${fStamp(m.at)}</td><td class="nm">${esc(m.product)}</td><td><span class="pill ${STK_MOV[m.type][1]}">${STK_MOV[m.type][0]}</span></td><td class="r ${m.qty > 0 ? 'gold' : ''}">${m.qty > 0 ? '+' : '−'}${Math.abs(m.qty)}</td><td class="r">${m.balance}</td><td class="r">${m.value === null ? '-' : money(m.value)}</td><td><span class="sm" style="font-size:12.5px">${esc(m.user || '-')} · ${esc(m.reason)}</span></td></tr>`).join('')}</tbody></table></div><p class="note" style="margin-top:10px">Últimas ${E.moves.length} movimentações. Cada venda, entrada ou ajuste fica registrado com quem fez.</p>` : '<div class="empty">Nenhuma movimentação ainda. Elas aparecem ao registrar vendas, entradas ou ajustes.</div>';
+  } else {
+    body = `<div class="toolbar stk-tools" style="margin-bottom:12px"><label class="search">${ic('search')}<input id="stk-q" type="search" placeholder="Buscar produto" value="${esc(UI.stkQ || '')}" aria-label="Buscar produto"></label>
+      <div class="seg2">${[['all', 'Todos', E.products.length], ['repor', 'Para repor', K.low + K.out]].map(([k, l, n]) => `<button class="${(UI.stkSit || 'all') === k ? 'on' : ''}" data-act="stksit" data-k="${k}">${l}<span class="n">${n}</span></button>`).join('')}</div></div>
+      <div id="stk-results">${vStockList(E)}</div>`;
+  }
+  return `${toolbar}
+  <div class="kpis">
+    ${kpi('Vendas de produtos', 'wallet', money0(K.revenue30), `${num(K.sold30)} unidade${K.sold30 === 1 ? '' : 's'} nos últimos 30 dias`, true)}
+    ${kpi('Unidades em estoque', 'box', num(K.units), `${K.products} produto${K.products === 1 ? '' : 's'} cadastrado${K.products === 1 ? '' : 's'}`)}
+    ${kpi('Valor em estoque', 'ticket', money0(K.stockValue), `pelo preço de venda · custo ${money0(K.stockCost)}`)}
+    ${kpi('Para repor', 'alert', num(K.low + K.out), `${K.low} com estoque baixo · ${K.out} esgotado${K.out === 1 ? '' : 's'}`)}
+  </div>
+  <section class="panel"><div class="panel-b">${body}</div></section>
+  <p class="note">O estoque nunca fica negativo: a venda só é registrada se houver unidades. Venda de produto não entra no faturamento dos atendimentos da Visão geral.</p>`;
+}
+function vProdEdit(id, L) {
+  const E = CACHE.estoque && CACHE.estoque.data;
+  if (!E) return sheet('Produto', '', vLoading());
+  const p = id ? E.products.find(x => x.id === id) : { name: '', desc: '', price: '', cost: '', min: 3, qty: 0, photo: null };
+  if (!p) return sheet('Produto', '', '<div class="empty">Produto não encontrado.</div>');
+  const v = Object.assign({}, p, L.v || {});
+  return sheet(id ? esc(p.name) : 'Novo produto', id ? 'Editar dados do produto' : 'Cadastrar produto para vender no balcão', `<form class="form" id="prod-form" style="margin-top:0" novalidate>
+    ${photoField('prod', id, L.preview || p.photo || '', !!(p.photo || L.preview), false)}
+    <div class="fld"><label for="in-prname">Nome</label><input id="in-prname" maxlength="80" value="${esc(v.name)}" placeholder="Ex.: Pomada modeladora 120 g"></div>
+    <div class="fld"><label for="in-prdesc">Descrição<em>opcional</em></label><input id="in-prdesc" maxlength="160" value="${esc(v.desc)}"></div>
+    <div class="fld-row"><div class="fld"><label for="in-prprice">Preço de venda (R$)</label><input id="in-prprice" type="number" min="0" max="10000" step="0.01" value="${esc(v.price)}"></div><div class="fld"><label for="in-prcost">Custo (R$)<em>opcional</em></label><input id="in-prcost" type="number" min="0" max="10000" step="0.01" value="${esc(v.cost)}"></div></div>
+    <div class="fld-row">${id ? '' : `<div class="fld"><label for="in-prqty">Quantidade que já tem</label><input id="in-prqty" type="number" min="0" max="99999" step="1" value="${esc(v.qty)}"></div>`}<div class="fld"><label for="in-prmin">Avisar estoque baixo com</label><input id="in-prmin" type="number" min="0" max="999" step="1" value="${esc(v.min)}"></div></div>
+    ${id ? `<p class="note">Em estoque agora: <b>${p.qty}</b>. Para mudar a quantidade use Vender, Entrada ou <button type="button" class="link" data-act="stk-move" data-id="${p.id}" data-t="ajuste">Ajustar contagem</button>.</p>` : ''}
+    ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
+  </form>${L.confirmDel ? `<div class="confirm-box"><p>Remover ${esc(p.name)} do estoque? Ele sai da lista; as vendas e entradas antigas continuam nas movimentações.</p><div class="row"><button class="btn btn-ghost btn-sm" data-act="svc-del-cancel">Voltar</button><button class="btn btn-gold btn-sm" data-act="prod-del" data-id="${id}">Remover produto</button></div></div>` : ''}`,
+  `${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Remover</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="prod-save" data-id="${id || ''}">Salvar</button>`);
+}
+function vStkMove(L) {
+  const E = CACHE.estoque && CACHE.estoque.data;
+  const p = E && E.products.find(x => x.id === L.id);
+  if (!p) return sheet('Estoque', '', E ? '<div class="empty">Produto não encontrado.</div>' : vLoading());
+  const t = L.t, v = L.v || {};
+  const qty = v.qty !== undefined ? v.qty : 1;
+  const titles = { venda: 'Registrar venda', entrada: 'Registrar entrada', ajuste: 'Ajustar contagem' };
+  const subs = { venda: 'Baixa as unidades vendidas no balcão', entrada: 'Mercadoria que chegou na barbearia', ajuste: 'Corrige o saldo depois de contar as unidades' };
+  return sheet(titles[t], `${esc(p.name)} · ${p.qty} em estoque`, `<form class="form" id="stk-form" style="margin-top:0" novalidate>
+    <div class="seg2" style="margin-bottom:6px">${[['venda', 'Venda'], ['entrada', 'Entrada'], ['ajuste', 'Ajuste']].map(([k, l]) => `<button type="button" class="${t === k ? 'on' : ''}" data-act="stk-move" data-id="${p.id}" data-t="${k}">${l}</button>`).join('')}</div>
+    ${t === 'ajuste'
+      ? `<div class="fld"><label for="in-stkqty">Quantas unidades tem de fato</label><input id="in-stkqty" type="number" min="0" max="99999" step="1" value="${esc(v.qty !== undefined ? v.qty : p.qty)}"></div>`
+      : `<div class="fld-row"><div class="fld"><label for="in-stkqty">${t === 'venda' ? 'Unidades vendidas' : 'Unidades que chegaram'}</label><input id="in-stkqty" type="number" min="1" max="${t === 'venda' ? p.qty : 9999}" step="1" value="${esc(qty)}" data-price="${p.price}"></div>${t === 'venda' ? `<div class="fld"><label for="in-stkval">Total recebido (R$)</label><input id="in-stkval" type="number" min="0" step="0.01" value="${esc(v.value !== undefined ? v.value : (Number(qty) || 0) * p.price)}"></div>` : ''}</div>`}
+    <div class="fld"><label for="in-stkwhy">Observação<em>opcional</em></label><input id="in-stkwhy" maxlength="200" value="${esc(v.reason || '')}" placeholder="${t === 'venda' ? 'Ex.: vendido junto com o corte' : t === 'entrada' ? 'Ex.: compra do fornecedor' : 'Ex.: contagem do fim do mês'}"></div>
+    ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
+  </form>`,
+  `<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="stk-save" data-id="${p.id}" data-t="${t}">${t === 'venda' ? 'Registrar venda' : t === 'entrada' ? 'Registrar entrada' : 'Salvar contagem'}</button>`);
 }
 
 /* ---------- Fidelidade ---------- */
@@ -479,14 +563,14 @@ function vStaffLogin() {
 /* ---------- admin shell ---------- */
 function adminNav() {
   const N = need('contadores', '/gestao/contadores', 'staff', 60000);
-  const counts = N ? { agenda: N.agendaToday, oportunidades: N.lapsed } : {};
+  const counts = N ? { agenda: N.agendaToday, oportunidades: N.lapsed, ...(N.stockLow ? { estoque: N.stockLow } : {}) } : {};
   return `<div class="anav">${ANAV.map(n => `<button class="${UI.admin === n.id ? 'on' : ''}" data-act="anav" data-id="${n.id}">${ic(n.icon)}${n.label}${counts[n.id] !== undefined ? `<span class="ct">${counts[n.id]}</span>` : ''}</button>`).join('')}</div>`;
 }
 function vAdmin() {
   if (!STAFF) return vStaffLogin();
   if (!ATITLE[UI.admin]) UI.admin = 'dash';
   const [t, sub] = ATITLE[UI.admin];
-  const map = { dash: vDash, agenda: vAgenda, clientes: vClientes, servicos: vServAdmin, fidelidade: vFidelidade, oportunidades: vOpp, config: vConfig };
+  const map = { dash: vDash, agenda: vAgenda, clientes: vClientes, servicos: vServAdmin, estoque: vEstoque, fidelidade: vFidelidade, oportunidades: vOpp, config: vConfig };
   return `<div class="ad">
     <aside class="ad-side">
       <div class="ad-logo">${lockup(42)}<small>Gestão da barbearia</small></div>

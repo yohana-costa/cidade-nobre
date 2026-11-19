@@ -15,6 +15,17 @@ export async function salvarFoto(buffer: Buffer, mimetype: string, prefixo: stri
   return `/uploads/${arquivo}`;
 }
 
+// Grava a foto e o registro; se o registro falhar, apaga a foto para nao ficar arquivo solto.
+export async function trocarFoto<T>(arquivo: { buffer: Buffer; mimetype: string }, prefixo: string, gravar: (url: string) => Promise<T>) {
+  const url = await salvarFoto(arquivo.buffer, arquivo.mimetype, prefixo);
+  try {
+    return await gravar(url);
+  } catch (e) {
+    await removerFoto(url);
+    throw e;
+  }
+}
+
 // Remove uma foto enviada. As imagens prontas do site (chaves como svc_corte) nunca sao apagadas.
 export async function removerFoto(url?: string | null) {
   if (!url || !url.startsWith('/uploads/')) return;

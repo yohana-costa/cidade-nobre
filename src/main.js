@@ -49,6 +49,8 @@ function renderLayer() {
   else if (L.kind === 'client') inner = vClientModal(L.id, L);
   else if (L.kind === 'svc-edit') inner = vSvcEdit(L.id, L);
   else if (L.kind === 'pro-edit') inner = vProEdit(L.id, L);
+  else if (L.kind === 'prod-edit') inner = vProdEdit(L.id, L);
+  else if (L.kind === 'stk-move') inner = vStkMove(L);
   else if (L.kind === 'new-appt') inner = vNewAppt(L);
   else if (L.kind === 'draft') inner = vDraftMsg(L.id, L.k);
   else inner = vSheet(L);
@@ -98,19 +100,21 @@ function setMode(mode, push) {
 }
 
 /* ---- fotos da gestão ---- */
+const PHOTO_PATH = { svc: id => `/gestao/servicos/${id}/imagem`, pro: id => `/gestao/profissionais/${id}/foto`, prod: id => `/gestao/produtos/${id}/foto` };
 // Recarrega o catálogo da gestão e o do site e redesenha o formulário aberto com a foto nova.
-async function photoChanged() {
-  const d = await API.get('/gestao/catalogo', 'staff');
-  CACHE['cat-gestao'] = { data: d, at: Date.now() };
-  adminChanged(); await loadCatalog();
+async function photoChanged(kind) {
+  if (kind === 'prod') CACHE.estoque = { data: await API.get('/gestao/estoque', 'staff'), at: Date.now() };
+  else { CACHE['cat-gestao'] = { data: await API.get('/gestao/catalogo', 'staff'), at: Date.now() }; adminChanged(); await loadCatalog(); }
   if (LAYER) { LAYER.keep = true; LAYER.v = formSnapshot(); renderLayer(); }
   render(true);
 }
+const prodForm = () => ({ name: val('in-prname'), desc: val('in-prdesc'), price: val('in-prprice'), cost: val('in-prcost'), min: val('in-prmin'), qty: val('in-prqty') });
 // o que já foi digitado no formulário aberto (a foto vem do servidor)
 function formSnapshot() {
   const g = id => document.getElementById(id);
   if (g('in-sname')) return { name: val('in-sname'), desc: val('in-sdesc'), cat: val('in-scat'), dur: Number(val('in-dur')), price: Number(val('in-price')), visible: g('in-svis').checked };
   if (g('in-pname')) return { name: val('in-pname') };
+  if (g('in-prname')) return prodForm();
   return null;
 }
 
@@ -377,7 +381,7 @@ document.addEventListener('click', async e => {
       case 'photo-rm': {
         // ainda nao salvo: so descarta a foto escolhida
         if (!D.id) { if (LAYER.preview) URL.revokeObjectURL(LAYER.preview); LAYER.file = null; LAYER.preview = null; LAYER.keep = true; renderLayer(); break; }
-        try { await API.del(D.k === 'svc' ? `/gestao/servicos/${D.id}/imagem` : `/gestao/profissionais/${D.id}/foto`, 'staff'); await photoChanged(); toast('Foto removida.'); }
+        try { await API.del(PHOTO_PATH[D.k](D.id), 'staff'); await photoChanged(D.k); toast('Foto removida.'); }
         catch (err) { LAYER.err = err.message; renderLayer(); }
         break;
       }
@@ -406,6 +410,41 @@ document.addEventListener('click', async e => {
         if (!list.length) { toast('Cada profissional precisa realizar ao menos um serviço.', 'info'); break; }
         try { await API.put(`/gestao/profissionais/${p.id}`, { services: list }, 'staff'); p.services = list; adminChanged(); await loadCatalog(); render(true); }
         catch (err) { toast(err.message, 'alert'); }
+        break;
+      }
+      case 'stktab': UI.stkTab = D.k; saveUI(); render(true); break;
+      case 'stksit': UI.stkSit = D.k; saveUI(); render(true); break;
+      case 'prod-new': openLayer({ kind: 'prod-edit', id: null }); break;
+      case 'prod-edit': openLayer({ kind: 'prod-edit', id: D.id }); break;
+      case 'prod-save': {
+        const v = prodForm();
+        const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
+        try {
+          const body = { name: v.name, desc: v.desc, price: Number(v.price) || 0, cost: Number(v.cost) || 0, min: Math.round(Number(v.min) || 0) };
+          if (D.id) await API.put(`/gestao/produtos/${D.id}`, body, 'staff');
+          else { const p = await API.post('/gestao/produtos', { ...body, qty: Math.round(Number(v.qty) || 0) }, 'staff'); if (pend.file) await API.upload(PHOTO_PATH.prod(p.id), pend.file, 'staff'); }
+          closeLayer(); invalidate('estoque', 'contadores'); render(true); toast(`${v.name} salvo.`);
+        } catch (err) { openLayer({ kind: 'prod-edit', id: D.id || null, v, err: err.message, ...pend }); }
+        break;
+      }
+      case 'prod-del': {
+        try { await API.del(`/gestao/produtos/${D.id}`, 'staff'); closeLayer(); invalidate('estoque', 'contadores'); render(true); toast('Produto removido do estoque.'); }
+        catch (err) { LAYER.confirmDel = false; LAYER.err = err.message; renderLayer(); }
+        break;
+      }
+      case 'stk-move': openLayer({ kind: 'stk-move', id: D.id, t: D.t }); break;
+      case 'stk-save': {
+        const n = Math.round(Number(val('in-stkqty')));
+        const reason = val('in-stkwhy') || undefined;
+        const body = D.t === 'ajuste' ? { type: 'ajuste', count: n, reason } : { type: D.t, qty: n, reason, ...(D.t === 'venda' ? { value: Number(val('in-stkval')) || 0 } : {}) };
+        const v = { qty: val('in-stkqty'), value: val('in-stkval'), reason: val('in-stkwhy') };
+        if (!Number.isFinite(n) || n < (D.t === 'ajuste' ? 0 : 1)) { LAYER.v = v; LAYER.err = D.t === 'ajuste' ? 'Informe quantas unidades tem.' : 'Informe ao menos 1 unidade.'; LAYER.keep = true; renderLayer(); break; }
+        const done = busy(t, 'Salvando…');
+        try {
+          const p = await API.post(`/gestao/produtos/${D.id}/movimentos`, body, 'staff');
+          closeLayer(); invalidate('estoque', 'contadores'); render(true);
+          toast(D.t === 'venda' ? `Venda registrada. Restam ${p.qty} de ${p.name}.` : D.t === 'entrada' ? `Entrada registrada. Agora são ${p.qty} de ${p.name}.` : `Contagem salva: ${p.qty} de ${p.name}.`);
+        } catch (err) { done(); LAYER.v = v; LAYER.err = err.message; LAYER.keep = true; renderLayer(); }
         break;
       }
       case 'fidtab': UI.fidTab = D.k; saveUI(); render(true); break;
@@ -494,6 +533,8 @@ document.addEventListener('input', e => {
     const fld = t.closest('.fld'); if (fld && fld.classList.contains('err')) { const errs = validate(UI.draft); const k = t.id.slice(3); if (!errs[k]) { fld.classList.remove('err'); fld.querySelector('.msg')?.remove(); if (UI.formErrors) delete UI.formErrors[k]; } }
     const pf = document.querySelector('.prefill'); if (pf) pf.remove();
   }
+  if (t.id === 'stk-q') { UI.stkQ = t.value; const E = CACHE.estoque && CACHE.estoque.data; if (E) document.getElementById('stk-results').innerHTML = vStockList(E); }
+  if (t.id === 'in-stkqty' && t.dataset.price && document.getElementById('in-stkval')) document.getElementById('in-stkval').value = Math.round((Number(t.value) || 0) * Number(t.dataset.price) * 100) / 100;
   if (t.id === 'client-q') { UI.clientQ = t.value; document.getElementById('client-results').innerHTML = vClientsList(); }
   if (t.name === 'na-svc' || t.name === 'pro-svc' || t.name === 'cf-closed') t.closest('.pchip')?.classList.toggle('on', t.checked);
 });
@@ -504,10 +545,11 @@ document.addEventListener('change', async e => {
     try {
       const file = await reduzirImagem(el.files[0]);
       if (file.size > 5 * 1024 * 1024) throw new Error('A imagem continua grande demais (limite de 5 MB).');
-      if (!id) { if (LAYER.preview) URL.revokeObjectURL(LAYER.preview); Object.assign(LAYER, { file, preview: URL.createObjectURL(file), keep: true, err: null }); renderLayer(); return; }
+      // cadastro novo: guarda a foto para enviar ao salvar, sem perder o que ja foi digitado
+      if (!id) { if (LAYER.preview) URL.revokeObjectURL(LAYER.preview); Object.assign(LAYER, { file, preview: URL.createObjectURL(file), keep: true, err: null, v: { ...LAYER.v, ...formSnapshot() } }); renderLayer(); return; }
       LAYER.err = null; toast('Enviando foto…', 'info');
-      await API.upload(kind === 'svc' ? `/gestao/servicos/${id}/imagem` : `/gestao/profissionais/${id}/foto`, file, 'staff');
-      await photoChanged(); toast('Foto atualizada. Já aparece no site.');
+      await API.upload(PHOTO_PATH[kind](id), file, 'staff');
+      await photoChanged(kind); toast(kind === 'prod' ? 'Foto atualizada.' : 'Foto atualizada. Já aparece no site.');
     } catch (err) { el.value = ''; LAYER.err = err.message; LAYER.keep = true; renderLayer(); }
     return;
   }
@@ -524,7 +566,7 @@ document.addEventListener('focusout', e => {
   const k = t.id.slice(3), errs = validate(UI.draft), fld = t.closest('.fld');
   if (errs[k] && t.value) { if (!fld.classList.contains('err')) { fld.classList.add('err'); fld.insertAdjacentHTML('beforeend', `<div class="msg">${ic('alert')}${errs[k]}</div>`); } }
 });
-const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]' };
+const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]' };
 document.addEventListener('submit', e => {
   e.preventDefault();
   const sel = SUBMIT[e.target.id];

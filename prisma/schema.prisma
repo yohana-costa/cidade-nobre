@@ -17,34 +17,35 @@ datasource db {
 
 // Equipe que entra na gestao (login com e-mail e senha).
 model Usuario {
-  id           String   @id @default(uuid())
-  nome         String
-  email        String   @unique
-  senha        String
-  perfil       String   @default("OPERADOR") // ADMIN | GERENTE | OPERADOR
-  ativo        Boolean  @default(true)
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id                String             @id @default(uuid())
+  nome              String
+  email             String             @unique
+  senha             String
+  perfil            String             @default("OPERADOR") // ADMIN | GERENTE | OPERADOR
+  ativo             Boolean            @default(true)
+  movimentosEstoque MovimentoEstoque[]
+  criadoEm          DateTime           @default(now())
+  atualizadoEm      DateTime           @updatedAt
 
   @@map("usuarios")
 }
 
 // Regras do negocio que antes ficavam fixas no codigo. Linha unica (id = 1).
 model Configuracao {
-  id                   Int      @id @default(1)
-  pontosPorReal        Int      @default(1)
-  bonusIndicacao       Int      @default(50)
-  resgatePontos        Int      @default(250)
-  resgateValorCentavos Int      @default(2000)
-  horaAbertura         String   @default("09:00")
-  horaFechamento       String   @default("19:00")
-  diasFechados         Int[]    @default([0]) // 0 = domingo ... 6 = sabado
-  horarios             String[] @default(["10:00", "11:00", "13:30", "14:30", "16:00", "17:30"])
-  diasSemRetorno       Int      @default(45)
-  antecedenciaMinutos  Int      @default(20)
-  diasAgendamento      Int      @default(5)
-  dominioIndicacao     String   @default("")
-  inicioClube          String   @default("")
+  id                       Int       @id @default(1)
+  pontosPorReal            Int       @default(1)
+  bonusIndicacao           Int       @default(50)
+  resgatePontos            Int       @default(250)
+  resgateValorCentavos     Int       @default(2000)
+  horaAbertura             String    @default("09:00")
+  horaFechamento           String    @default("19:00")
+  diasFechados             Int[]     @default([0]) // 0 = domingo ... 6 = sabado
+  horarios                 String[]  @default(["10:00", "11:00", "13:30", "14:30", "16:00", "17:30"])
+  diasSemRetorno           Int       @default(45)
+  antecedenciaMinutos      Int       @default(20)
+  diasAgendamento          Int       @default(5)
+  dominioIndicacao         String    @default("")
+  inicioClube              String    @default("")
   // Pagamento online: a barbearia conecta a conta dela no Mercado Pago (OAuth pelo app da SMG).
   // Com conta conectada e cobrarOnline ligado, o agendamento do site so vale depois de pago.
   cobrarOnline             Boolean   @default(true)
@@ -53,7 +54,7 @@ model Configuracao {
   mercadoPagoUserId        String?
   mercadoPagoPublicKey     String?
   mercadoPagoTokenExpiraEm DateTime?
-  atualizadoEm         DateTime @updatedAt
+  atualizadoEm             DateTime  @updatedAt
 
   @@map("configuracoes")
 }
@@ -68,21 +69,21 @@ model Categoria {
 }
 
 model Servico {
-  id             String                @id @default(uuid())
-  nome           String                @unique
-  descricao      String                @default("")
-  categoriaId    String
-  categoria      Categoria             @relation(fields: [categoriaId], references: [id])
-  duracaoMin     Int
-  precoCentavos  Int
-  imagem         String? // chave da imagem em assets/ (ex.: svc_corte)
-  visivel        Boolean               @default(true) // aparece no site para o cliente
-  ativo          Boolean               @default(true) // false = removido do catalogo (historico preservado)
-  ordem          Int                   @default(0)
-  profissionais  Profissional[]
-  itens          AgendamentoServico[]
-  criadoEm       DateTime              @default(now())
-  atualizadoEm   DateTime              @updatedAt
+  id            String               @id @default(uuid())
+  nome          String               @unique
+  descricao     String               @default("")
+  categoriaId   String
+  categoria     Categoria            @relation(fields: [categoriaId], references: [id])
+  duracaoMin    Int
+  precoCentavos Int
+  imagem        String? // chave da imagem em assets/ (ex.: svc_corte)
+  visivel       Boolean              @default(true) // aparece no site para o cliente
+  ativo         Boolean              @default(true) // false = removido do catalogo (historico preservado)
+  ordem         Int                  @default(0)
+  profissionais Profissional[]
+  itens         AgendamentoServico[]
+  criadoEm      DateTime             @default(now())
+  atualizadoEm  DateTime             @updatedAt
 
   @@map("servicos")
 }
@@ -103,57 +104,57 @@ model Profissional {
 }
 
 model Cliente {
-  id                  String            @id @default(uuid())
-  nome                String
-  telefone            String            @unique // so digitos, com DDD
-  email               String?
-  codigo              String            @unique // codigo do link de indicacao
-  senha               String? // conta do cliente (telefone + senha); nulo = sem conta
-  codigoAcesso        String? // hash do codigo de primeiro acesso gerado pela equipe
-  codigoAcessoExpira  DateTime?
-  criadoEm            DateTime          @default(now())
-  atualizadoEm        DateTime          @updatedAt
-  agendamentos        Agendamento[]
-  movimentos          MovimentoPontos[]
-  vouchers            Voucher[]
-  indicacoesFeitas    Indicacao[]       @relation("Indicador")
-  indicacaoRecebida   Indicacao?        @relation("Indicado")
+  id                 String            @id @default(uuid())
+  nome               String
+  telefone           String            @unique // so digitos, com DDD
+  email              String?
+  codigo             String            @unique // codigo do link de indicacao
+  senha              String? // conta do cliente (telefone + senha); nulo = sem conta
+  codigoAcesso       String? // hash do codigo de primeiro acesso gerado pela equipe
+  codigoAcessoExpira DateTime?
+  criadoEm           DateTime          @default(now())
+  atualizadoEm       DateTime          @updatedAt
+  agendamentos       Agendamento[]
+  movimentos         MovimentoPontos[]
+  vouchers           Voucher[]
+  indicacoesFeitas   Indicacao[]       @relation("Indicador")
+  indicacaoRecebida  Indicacao?        @relation("Indicado")
 
   @@map("clientes")
 }
 
 model Agendamento {
-  id                       String               @id @default(uuid())
-  clienteId                String
-  cliente                  Cliente              @relation(fields: [clienteId], references: [id])
-  profissionalId           String
-  profissional             Profissional         @relation("ProfissionalAtende", fields: [profissionalId], references: [id])
+  id                      String               @id @default(uuid())
+  clienteId               String
+  cliente                 Cliente              @relation(fields: [clienteId], references: [id])
+  profissionalId          String
+  profissional            Profissional         @relation("ProfissionalAtende", fields: [profissionalId], references: [id])
   // profissional escolhido pelo cliente; nulo = "sem preferencia"
-  profissionalEscolhidoId  String?
-  profissionalEscolhido    Profissional?        @relation("ProfissionalEscolhido", fields: [profissionalEscolhidoId], references: [id])
-  data                     String               @db.VarChar(10)
-  hora                     String               @db.VarChar(5)
-  duracaoMin               Int
-  precoCentavos            Int
-  descontoCentavos         Int                  @default(0)
-  status                   String               @default("agendado") // agendado | confirmado | concluido | cancelado
-  origem                   String               @default("site") // site | balcao
-  observacao               String?
+  profissionalEscolhidoId String?
+  profissionalEscolhido   Profissional?        @relation("ProfissionalEscolhido", fields: [profissionalEscolhidoId], references: [id])
+  data                    String               @db.VarChar(10)
+  hora                    String               @db.VarChar(5)
+  duracaoMin              Int
+  precoCentavos           Int
+  descontoCentavos        Int                  @default(0)
+  status                  String               @default("agendado") // agendado | confirmado | concluido | cancelado
+  origem                  String               @default("site") // site | balcao
+  observacao              String?
   // nao_exigido | pendente | pago | expirado | cancelado (cobranca do site pelo Mercado Pago)
-  pagamentoStatus          String               @default("nao_exigido")
-  pagamentoValorCentavos   Int?
-  pagamentoPreferenciaId   String?
-  pagamentoLink            String?
-  pagamentoId              String? // id do pagamento aprovado no Mercado Pago
-  pagamentoExpiraEm        DateTime?
-  pagoEm                   DateTime?
-  concluidoEm              DateTime?
-  criadoEm                 DateTime             @default(now())
-  atualizadoEm             DateTime             @updatedAt
-  itens                    AgendamentoServico[]
-  movimentos               MovimentoPontos[]
-  indicacaoLiberada        Indicacao?
-  voucherUsado             Voucher?
+  pagamentoStatus         String               @default("nao_exigido")
+  pagamentoValorCentavos  Int?
+  pagamentoPreferenciaId  String?
+  pagamentoLink           String?
+  pagamentoId             String? // id do pagamento aprovado no Mercado Pago
+  pagamentoExpiraEm       DateTime?
+  pagoEm                  DateTime?
+  concluidoEm             DateTime?
+  criadoEm                DateTime             @default(now())
+  atualizadoEm            DateTime             @updatedAt
+  itens                   AgendamentoServico[]
+  movimentos              MovimentoPontos[]
+  indicacaoLiberada       Indicacao?
+  voucherUsado            Voucher?
 
   @@index([data, profissionalId])
   @@index([clienteId])
@@ -163,48 +164,48 @@ model Agendamento {
 
 // Servicos do agendamento com nome, duracao e preco congelados no momento da reserva.
 model AgendamentoServico {
-  id             String      @id @default(uuid())
-  agendamentoId  String
-  agendamento    Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
-  servicoId      String
-  servico        Servico     @relation(fields: [servicoId], references: [id])
-  nome           String
-  duracaoMin     Int
-  precoCentavos  Int
-  ordem          Int         @default(0)
+  id            String      @id @default(uuid())
+  agendamentoId String
+  agendamento   Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  servicoId     String
+  servico       Servico     @relation(fields: [servicoId], references: [id])
+  nome          String
+  duracaoMin    Int
+  precoCentavos Int
+  ordem         Int         @default(0)
 
   @@map("agendamento_servicos")
 }
 
 model Indicacao {
-  id            String       @id @default(uuid())
+  id            String            @id @default(uuid())
   indicadorId   String
-  indicador     Cliente      @relation("Indicador", fields: [indicadorId], references: [id])
-  indicadoId    String       @unique
-  indicado      Cliente      @relation("Indicado", fields: [indicadoId], references: [id])
-  status        String       @default("pendente") // pendente | concluida
-  agendamentoId String?      @unique // atendimento que liberou os pontos
-  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id])
+  indicador     Cliente           @relation("Indicador", fields: [indicadorId], references: [id])
+  indicadoId    String            @unique
+  indicado      Cliente           @relation("Indicado", fields: [indicadoId], references: [id])
+  status        String            @default("pendente") // pendente | concluida
+  agendamentoId String?           @unique // atendimento que liberou os pontos
+  agendamento   Agendamento?      @relation(fields: [agendamentoId], references: [id])
   concluidaEm   DateTime?
-  criadoEm      DateTime     @default(now())
+  criadoEm      DateTime          @default(now())
   movimentos    MovimentoPontos[]
 
   @@map("indicacoes")
 }
 
 model Voucher {
-  id                String       @id @default(uuid())
-  clienteId         String
-  cliente           Cliente      @relation(fields: [clienteId], references: [id])
-  titulo            String
-  valorCentavos     Int
-  custoPontos       Int
-  status            String       @default("disponivel") // disponivel | utilizado
-  agendamentoUsoId  String?      @unique
-  agendamentoUso    Agendamento? @relation(fields: [agendamentoUsoId], references: [id])
-  usadoEm           DateTime?
-  criadoEm          DateTime     @default(now())
-  movimentos        MovimentoPontos[]
+  id               String            @id @default(uuid())
+  clienteId        String
+  cliente          Cliente           @relation(fields: [clienteId], references: [id])
+  titulo           String
+  valorCentavos    Int
+  custoPontos      Int
+  status           String            @default("disponivel") // disponivel | utilizado
+  agendamentoUsoId String?           @unique
+  agendamentoUso   Agendamento?      @relation(fields: [agendamentoUsoId], references: [id])
+  usadoEm          DateTime?
+  criadoEm         DateTime          @default(now())
+  movimentos       MovimentoPontos[]
 
   @@index([clienteId, status])
   @@map("vouchers")
@@ -232,4 +233,40 @@ model MovimentoPontos {
   @@unique([tipo, voucherId])
   @@index([clienteId])
   @@map("movimentos_pontos")
+}
+
+// ============ estoque de produtos vendidos no balcao (pomada, shampoo...) ============
+model Produto {
+  id            String             @id @default(uuid())
+  nome          String
+  descricao     String             @default("")
+  precoCentavos Int                @default(0) // preco de venda
+  custoCentavos Int                @default(0) // quanto a barbearia pagou
+  quantidade    Int                @default(0) // saldo atual; so muda junto com um MovimentoEstoque
+  estoqueMinimo Int                @default(3) // a partir daqui aparece como "estoque baixo"
+  foto          String? // /uploads/... enviada pela gestao
+  ativo         Boolean            @default(true)
+  movimentos    MovimentoEstoque[]
+  criadoEm      DateTime           @default(now())
+  atualizadoEm  DateTime           @updatedAt
+
+  @@map("produtos")
+}
+
+model MovimentoEstoque {
+  id            String   @id @default(uuid())
+  produtoId     String
+  produto       Produto  @relation(fields: [produtoId], references: [id])
+  tipo          String // entrada | venda | ajuste
+  quantidade    Int // positivo entra, negativo sai
+  saldoApos     Int
+  valorCentavos Int? // venda: total recebido
+  motivo        String   @default("")
+  usuarioId     String?
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id])
+  criadoEm      DateTime @default(now())
+
+  @@index([produtoId, criadoEm])
+  @@index([tipo, criadoEm])
+  @@map("movimentos_estoque")
 }

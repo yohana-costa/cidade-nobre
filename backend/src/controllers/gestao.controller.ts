@@ -5,6 +5,8 @@ import * as clientes from '../services/clientes.service';
 import * as catalogo from '../services/catalogo.service';
 import * as configuracao from '../services/configuracao.service';
 import * as mercadoPago from '../services/mercado-pago.service';
+import * as estoque from '../services/estoque.service';
+import { AuthRequest } from '../middleware/auth';
 
 const q = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -39,6 +41,15 @@ export const enviarImagemServico = h((req) => catalogo.enviarImagemServico(req.p
 export const removerImagemServico = h((req) => catalogo.removerImagemServico(req.params.id));
 export const enviarFotoProfissional = h((req) => catalogo.enviarFotoProfissional(req.params.id, req.file));
 export const removerFotoProfissional = h((req) => catalogo.removerFotoProfissional(req.params.id));
+
+// estoque de produtos
+export const painelEstoque = h(() => estoque.painelEstoque());
+export const criarProduto = h<AuthRequest>((req) => estoque.criarProduto(req.body, req.user!.id), 201);
+export const atualizarProduto = h((req) => estoque.atualizarProduto(req.params.id, req.body));
+export const removerProduto = h((req) => estoque.removerProduto(req.params.id));
+export const enviarFotoProduto = h((req) => estoque.enviarFotoProduto(req.params.id, req.file));
+export const removerFotoProduto = h((req) => estoque.removerFotoProduto(req.params.id));
+export const movimentarEstoque = h<AuthRequest>((req) => estoque.movimentar(req.params.id, req.body, req.user!.id));
 
 // regras do negocio
 export const obterConfiguracao = h(() => configuracao.obterConfiguracao());

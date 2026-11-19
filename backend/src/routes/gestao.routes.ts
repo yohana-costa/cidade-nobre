@@ -4,7 +4,7 @@ import { authMiddleware, requireAdmin, requireGerente } from '../middleware/auth
 import { upload } from '../middleware/upload';
 
 // Gestao da barbearia: toda rota exige login da equipe.
-// OPERADOR: agenda, clientes e listas. GERENTE: + servicos e equipe. ADMIN: + regras e usuarios.
+// OPERADOR: agenda, clientes, listas e movimentar o estoque. GERENTE: + servicos, equipe e cadastro de produtos. ADMIN: + regras e usuarios.
 const router = Router();
 router.use(authMiddleware);
 
@@ -35,6 +35,14 @@ router.put('/profissionais/:id', requireGerente, c.atualizarProfissional);
 router.delete('/profissionais/:id', requireGerente, c.removerProfissional);
 router.post('/profissionais/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoProfissional);
 router.delete('/profissionais/:id/foto', requireGerente, c.removerFotoProfissional);
+
+router.get('/estoque', c.painelEstoque);
+router.post('/produtos', requireGerente, c.criarProduto);
+router.put('/produtos/:id', requireGerente, c.atualizarProduto);
+router.delete('/produtos/:id', requireGerente, c.removerProduto);
+router.post('/produtos/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoProduto);
+router.delete('/produtos/:id/foto', requireGerente, c.removerFotoProduto);
+router.post('/produtos/:id/movimentos', c.movimentarEstoque);
 
 router.get('/configuracoes', c.obterConfiguracao);
 router.put('/configuracoes', requireAdmin, c.atualizarConfiguracao);

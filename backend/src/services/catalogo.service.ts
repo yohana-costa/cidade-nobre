@@ -4,7 +4,7 @@ import { falha } from '../lib/erros';
 import { hoje } from '../lib/datas';
 import { reais } from '../lib/base';
 import { obterConfiguracao } from './configuracao.service';
-import { removerFoto, salvarFoto } from '../lib/storage';
+import { removerFoto, trocarFoto } from '../lib/storage';
 
 // Imagens prontas em assets/ para ilustrar um servico no site (ou uma foto enviada, em /uploads)
 export const IMAGENS_SERVICO = ['svc_corte', 'svc_barba', 'svc_penteado', 'svc_manicure', 'svc_nasal', 'svc_sobrancelha', 'cat_cabelo', 'cat_barba', 'cat_cuidados'];
@@ -104,17 +104,6 @@ export async function atualizarServico(id: string, body: unknown) {
 
 /* ============ gestao: fotos enviadas ============ */
 type Arquivo = { buffer: Buffer; mimetype: string } | undefined;
-
-// Grava a foto e so entao atualiza o banco; se o banco falhar, apaga a foto nova para nao sobrar arquivo solto.
-async function trocarFoto<T>(arquivo: { buffer: Buffer; mimetype: string }, prefixo: string, gravar: (url: string) => Promise<T>) {
-  const url = await salvarFoto(arquivo.buffer, arquivo.mimetype, prefixo);
-  try {
-    return await gravar(url);
-  } catch (e) {
-    await removerFoto(url);
-    throw e;
-  }
-}
 
 export async function enviarImagemServico(id: string, arquivo: Arquivo) {
   if (!arquivo) throw falha(400, 'Nenhuma imagem enviada.');

@@ -7,6 +7,7 @@ import {
 } from '../lib/base';
 import { obterConfiguracao } from './configuracao.service';
 import { serviceView, IMAGENS_SERVICO } from './catalogo.service';
+import { produtosParaRepor } from './estoque.service';
 
 async function base(): Promise<Base> {
   const cfg = await obterConfiguracao();
@@ -261,6 +262,7 @@ export async function contadores() {
   return {
     agendaToday: b.appts.filter((a) => a.date === b.T && a.status !== 'cancelado').length,
     lapsed: lapsedClients(b).length,
+    stockLow: await produtosParaRepor(),
   };
 }
 

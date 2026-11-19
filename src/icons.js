@@ -36,6 +36,8 @@ const ICONS = {
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   swap: '<path d="M4 8h15l-3.5-3.5M20 16H5l3.5 3.5"/>',
   store: '<path d="M4 10v10h16V10M3 10l2-6h14l2 6zM9 20v-6h6v6"/>',
+  box: '<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',
+  minus: '<path d="M5 12h14"/>',
   alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.3v.1"/>',
   trend: '<path d="m3.5 16.5 5-5 4 4 8-8M15 7.5h5.5V13"/>',
   msg: '<path d="M4 5.5h16v10H9l-5 4z"/>',
