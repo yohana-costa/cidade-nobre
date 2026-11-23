@@ -27,8 +27,6 @@ export const config = {
     .filter(Boolean),
   // Endereco publico do site (volta do pagamento, aviso do Mercado Pago e volta do OAuth).
   siteUrl: (process.env.SITE_URL || 'https://cidadenobre.147-93-145-137.sslip.io').replace(/\/+$/, ''),
-  // Loja do Doutor do Celular (Kauan Cell): a vitrine de acessorios do inicio vem do catalogo publico dela
-  doutorUrl: (process.env.DOUTOR_URL || 'https://doutordocelular.147-93-145-137.sslip.io').replace(/\/+$/, ''),
   // Mercado Pago: o app e da SMG (client_id/secret no .env); a barbearia conecta a conta
   // dela por OAuth e o dinheiro cai la. A SMG fica com a comissao (marketplace_fee).
   mercadoPago: {

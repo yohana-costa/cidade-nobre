@@ -860,3 +860,4 @@ button.sim::before{display:none}
   .vit-bar{width:40%}
   .vit-note{margin-bottom:22px}
 }
+.vit-gap{height:calc(14 * var(--u))}

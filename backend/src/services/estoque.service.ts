@@ -21,6 +21,7 @@ const situacao = (p: { quantidade: number; estoqueMinimo: number }) => (p.quanti
 export const produtoView = (p: ProdutoRow) => ({
   id: p.id, name: p.nome, desc: p.descricao, price: reais(p.precoCentavos), cost: reais(p.custoCentavos),
   qty: p.quantidade, min: p.estoqueMinimo, photo: p.foto, status: situacao(p),
+  shelf: p.vitrine, cat: p.categoria,
 });
 
 const centavos = (v: number) => Math.round(v * 100);
@@ -71,6 +72,8 @@ const produtoSchema = z.object({
   price: z.number().min(0, 'Use preço entre R$ 0 e R$ 10.000.').max(10000, 'Use preço entre R$ 0 e R$ 10.000.'),
   cost: z.number().min(0, 'Use custo entre R$ 0 e R$ 10.000.').max(10000, 'Use custo entre R$ 0 e R$ 10.000.').default(0),
   min: z.number().int().min(0, 'O aviso de estoque baixo vai de 0 a 999.').max(999, 'O aviso de estoque baixo vai de 0 a 999.').default(3),
+  shelf: z.enum(['casa', 'celular']).default('casa'),
+  cat: z.string().trim().max(40, 'Use uma categoria de até 40 letras.').default(''),
 });
 
 export async function criarProduto(body: unknown, usuarioId: string) {
@@ -79,7 +82,7 @@ export async function criarProduto(body: unknown, usuarioId: string) {
     .parse(body);
   return prisma.$transaction(async (tx) => {
     const p = await tx.produto.create({
-      data: { nome: d.name, descricao: d.desc, precoCentavos: centavos(d.price), custoCentavos: centavos(d.cost), estoqueMinimo: d.min, quantidade: d.qty },
+      data: { nome: d.name, descricao: d.desc, precoCentavos: centavos(d.price), custoCentavos: centavos(d.cost), estoqueMinimo: d.min, quantidade: d.qty, vitrine: d.shelf, categoria: d.cat },
     });
     if (d.qty > 0) {
       await tx.movimentoEstoque.create({ data: { produtoId: p.id, tipo: 'entrada', quantidade: d.qty, saldoApos: d.qty, motivo: 'Estoque inicial', usuarioId } });
@@ -94,7 +97,7 @@ export async function atualizarProduto(id: string, body: unknown) {
   const p = await prisma.produto.update({
     where: { id },
     data: {
-      nome: d.name, descricao: d.desc, estoqueMinimo: d.min,
+      nome: d.name, descricao: d.desc, estoqueMinimo: d.min, vitrine: d.shelf, categoria: d.cat,
       precoCentavos: d.price !== undefined ? centavos(d.price) : undefined,
       custoCentavos: d.cost !== undefined ? centavos(d.cost) : undefined,
     },

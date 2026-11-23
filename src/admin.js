@@ -342,7 +342,7 @@ const stkPill = p => `<span class="pill ${STK_ST[p.status][1]}">${STK_ST[p.statu
 const prodThumb = p => p.photo ? `<img src="${esc(p.photo)}" alt="">` : `<span class="prod-ph">${ic('box')}</span>`;
 function stkRows(E) {
   const q = (UI.stkQ || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  return E.products.filter(p => (UI.stkSit === 'repor' ? p.status !== 'ok' : true) && (!q || (p.name + ' ' + p.desc).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
+  return E.products.filter(p => (UI.stkSit === 'repor' ? p.status !== 'ok' : true) && (!q || (p.name + ' ' + p.desc + ' ' + (p.cat || '')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
 }
 function vStockList(E) {
   const rows = stkRows(E);
@@ -351,7 +351,7 @@ function vStockList(E) {
   if (!rows.length) return `<div class="empty">Nenhum produto ${UI.stkQ ? `para “${esc(UI.stkQ)}”` : 'neste filtro'}.</div>`;
   const acts = p => `<button class="btn btn-gold btn-sm" data-act="stk-move" data-id="${p.id}" data-t="venda" ${p.qty ? '' : 'disabled'}>Vender</button><button class="btn btn-line btn-sm" data-act="stk-move" data-id="${p.id}" data-t="entrada">${ic('plus')} Entrada</button>${can ? `<button class="link" data-act="prod-edit" data-id="${p.id}">Editar</button>` : ''}`;
   return `<div class="desk-only"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Produto</th><th class="r">Preço</th><th class="r">Em estoque</th><th>Situação</th><th></th></tr></thead><tbody>
-    ${rows.map(p => `<tr><td><div class="svc-cell prod-cell">${prodThumb(p)}<span><span class="nm">${esc(p.name)}</span><span class="sm">${esc(p.desc)}${p.desc ? ' · ' : ''}aviso com ${p.min} ou menos</span></span></div></td><td class="r">${money(p.price)}</td><td class="r"><span class="stk-n ${p.status}">${num(p.qty)}</span></td><td>${stkPill(p)}</td><td class="r"><div class="stk-acts">${acts(p)}</div></td></tr>`).join('')}
+    ${rows.map(p => `<tr><td><div class="svc-cell prod-cell">${prodThumb(p)}<span><span class="nm">${esc(p.name)}</span><span class="sm">${p.shelf === 'celular' ? 'Celular' : 'Casa'}${p.cat ? ' · ' + esc(p.cat) : ''} · aviso com ${p.min} ou menos</span></span></div></td><td class="r">${money(p.price)}</td><td class="r"><span class="stk-n ${p.status}">${num(p.qty)}</span></td><td>${stkPill(p)}</td><td class="r"><div class="stk-acts">${acts(p)}</div></td></tr>`).join('')}
   </tbody></table></div></div>
   <div class="mobile-only"><div class="ccards">${rows.map(p => `<div class="prod-card"><div class="prod-top">${prodThumb(p)}<span style="min-width:0"><span class="nm" style="display:block">${esc(p.name)}</span><span class="ds" style="display:block">${money(p.price)} · ${stkPill(p)}</span></span><span class="stk-n ${p.status}">${num(p.qty)}<small>un.</small></span></div><div class="stk-acts">${acts(p)}</div></div>`).join('')}</div></div>`;
 }
@@ -385,13 +385,15 @@ function vEstoque() {
 function vProdEdit(id, L) {
   const E = CACHE.estoque && CACHE.estoque.data;
   if (!E) return sheet('Produto', '', vLoading());
-  const p = id ? E.products.find(x => x.id === id) : { name: '', desc: '', price: '', cost: '', min: 3, qty: 0, photo: null };
+  const p = id ? E.products.find(x => x.id === id) : { name: '', desc: '', price: '', cost: '', min: 3, qty: 0, photo: null, shelf: 'casa', cat: '' };
   if (!p) return sheet('Produto', '', '<div class="empty">Produto não encontrado.</div>');
   const v = Object.assign({}, p, L.v || {});
   return sheet(id ? esc(p.name) : 'Novo produto', id ? 'Editar dados do produto' : 'Cadastrar produto para vender no balcão', `<form class="form" id="prod-form" style="margin-top:0" novalidate>
     ${photoField('prod', id, L.preview || p.photo || '', !!(p.photo || L.preview), false)}
     <div class="fld"><label for="in-prname">Nome</label><input id="in-prname" maxlength="80" value="${esc(v.name)}" placeholder="Ex.: Pomada modeladora 120 g"></div>
     <div class="fld"><label for="in-prdesc">Descrição<em>opcional</em></label><input id="in-prdesc" maxlength="160" value="${esc(v.desc)}"></div>
+    <div class="fld-row"><div class="fld"><label for="in-prshelf">Aparece no site em</label><select id="in-prshelf">${[['casa', 'Produtos da casa'], ['celular', 'Acessórios para celular']].map(([k, l]) => `<option value="${k}" ${v.shelf === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div><div class="fld"><label for="in-prcat">Categoria<em>opcional</em></label><input id="in-prcat" maxlength="40" list="prcat-list" value="${esc(v.cat || '')}" placeholder="Ex.: Capinhas"><datalist id="prcat-list">${[...new Set([...E.products.map(x => x.cat).filter(Boolean), 'Capinhas', 'Carregadores', 'Cabos', 'Fones', 'Películas', 'Power banks', 'Caixas de som', 'Pomadas', 'Shampoos', 'Óleos para barba'])].map(c => `<option value="${esc(c)}">`).join('')}</datalist></div></div>
+    <p class="note" style="margin-top:-4px">Com estoque, o produto aparece sozinho no início do site; quando acaba, some. A categoria vira o filtro da vitrine de celular.</p>
     <div class="fld-row"><div class="fld"><label for="in-prprice">Preço de venda (R$)</label><input id="in-prprice" type="number" min="0" max="10000" step="0.01" value="${esc(v.price)}"></div><div class="fld"><label for="in-prcost">Custo (R$)<em>opcional</em></label><input id="in-prcost" type="number" min="0" max="10000" step="0.01" value="${esc(v.cost)}"></div></div>
     <div class="fld-row">${id ? '' : `<div class="fld"><label for="in-prqty">Quantidade que já tem</label><input id="in-prqty" type="number" min="0" max="99999" step="1" value="${esc(v.qty)}"></div>`}<div class="fld"><label for="in-prmin">Avisar estoque baixo com</label><input id="in-prmin" type="number" min="0" max="999" step="1" value="${esc(v.min)}"></div></div>
     ${id ? `<p class="note">Em estoque agora: <b>${p.qty}</b>. Para mudar a quantidade use Vender, Entrada ou <button type="button" class="link" data-act="stk-move" data-id="${p.id}" data-t="ajuste">Ajustar contagem</button>.</p>` : ''}

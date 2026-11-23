@@ -109,7 +109,7 @@ async function photoChanged(kind) {
   if (LAYER) { LAYER.keep = true; LAYER.v = formSnapshot(); renderLayer(); }
   render(true);
 }
-const prodForm = () => ({ name: val('in-prname'), desc: val('in-prdesc'), price: val('in-prprice'), cost: val('in-prcost'), min: val('in-prmin'), qty: val('in-prqty') });
+const prodForm = () => ({ name: val('in-prname'), desc: val('in-prdesc'), price: val('in-prprice'), cost: val('in-prcost'), min: val('in-prmin'), qty: val('in-prqty'), shelf: val('in-prshelf') || 'casa', cat: val('in-prcat') });
 // o que já foi digitado no formulário aberto (a foto vem do servidor)
 function formSnapshot() {
   const g = id => document.getElementById(id);
@@ -422,7 +422,7 @@ document.addEventListener('click', async e => {
         const v = prodForm();
         const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
         try {
-          const body = { name: v.name, desc: v.desc, price: Number(v.price) || 0, cost: Number(v.cost) || 0, min: Math.round(Number(v.min) || 0) };
+          const body = { name: v.name, desc: v.desc, price: Number(v.price) || 0, cost: Number(v.cost) || 0, min: Math.round(Number(v.min) || 0), shelf: v.shelf, cat: v.cat };
           if (D.id) await API.put(`/gestao/produtos/${D.id}`, body, 'staff');
           else { const p = await API.post('/gestao/produtos', { ...body, qty: Math.round(Number(v.qty) || 0) }, 'staff'); if (pend.file) await API.upload(PHOTO_PATH.prod(p.id), pend.file, 'staff'); }
           closeLayer(); invalidate('estoque', 'contadores'); render(true); toast(`${v.name} salvo.`);

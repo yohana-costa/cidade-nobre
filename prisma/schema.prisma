@@ -245,6 +245,9 @@ model Produto {
   quantidade    Int                @default(0) // saldo atual; so muda junto com um MovimentoEstoque
   estoqueMinimo Int                @default(3) // a partir daqui aparece como "estoque baixo"
   foto          String? // /uploads/... enviada pela gestao
+  // onde aparece no inicio do site: "casa" (Produtos da casa) ou "celular" (Acessorios para celular)
+  vitrine       String             @default("casa")
+  categoria     String             @default("") // ex.: Capinhas, Carregadores (filtro da vitrine)
   ativo         Boolean            @default(true)
   movimentos    MovimentoEstoque[]
   criadoEm      DateTime           @default(now())
