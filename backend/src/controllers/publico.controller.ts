@@ -8,11 +8,14 @@ import * as agenda from '../services/agenda.service';
 import * as pagamentos from '../services/pagamentos.service';
 import * as vitrineSvc from '../services/vitrine.service';
 import * as cardapioSvc from '../services/cardapio.service';
+import * as bar from '../services/pedidos-bar.service';
 
 export const catalogoPublico = h(() => catalogo.catalogoPublico());
 // acessorios da loja do Doutor + produtos do estoque da barbearia, no inicio do site
 export const vitrine = h(() => vitrineSvc.vitrine());
 export const cardapio = h(() => cardapioSvc.cardapioPublico());
+export const pedirBar = h<AuthRequest>((req) => bar.criarPedido(req.body, req.ip || 'sem-ip', req.clienteId || null), 201);
+export const verPedidoBar = h((req) => bar.verPedido(req.params.id));
 
 // "ignore" so vale para quem esta logado e e dono do agendamento sendo alterado
 export const disponibilidade = h<AuthRequest>(async (req) => {

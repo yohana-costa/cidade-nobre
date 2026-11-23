@@ -51,6 +51,9 @@ router.delete('/cardapio/:id', requireGerente, c.removerItemCardapio);
 router.post('/cardapio/:id/mover', requireGerente, c.moverItemCardapio);
 router.post('/cardapio/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoCardapio);
 router.delete('/cardapio/:id/foto', requireGerente, c.removerFotoCardapio);
+// pedidos de bebida feitos no site (qualquer pessoa da equipe atende)
+router.get('/pedidos-bar', c.pedidosBar);
+router.put('/pedidos-bar/:id', c.statusPedidoBar);
 
 router.get('/configuracoes', c.obterConfiguracao);
 router.put('/configuracoes', requireAdmin, c.atualizarConfiguracao);

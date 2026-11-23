@@ -273,6 +273,24 @@ model ItemCardapio {
   @@map("cardapio_itens")
 }
 
+// Pedido de bebidas feito pelo cliente no site (tela Cardapio); a equipe acompanha na gestao.
+model PedidoBar {
+  id             String   @id @default(uuid())
+  numero         Int      @unique @default(autoincrement())
+  nome           String // quem pediu
+  profissionalId String? // quem esta atendendo (para a equipe achar a cadeira)
+  observacao     String   @default("")
+  itens          Json // [{ id, name, price, qty }] com o preco do momento do pedido
+  totalCentavos  Int
+  status         String   @default("novo") // novo | preparando | entregue | cancelado
+  clienteId      String?
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  @@index([status, criadoEm])
+  @@map("pedidos_bar")
+}
+
 model MovimentoEstoque {
   id            String   @id @default(uuid())
   produtoId     String

@@ -53,7 +53,8 @@ function renderLayer() {
   else if (L.kind === 'prod-edit') inner = vProdEdit(L.id, L);
   else if (L.kind === 'stk-move') inner = vStkMove(L);
   else if (L.kind === 'card-edit') inner = vCardEdit(L.id, L);
-  else if (L.kind === 'pedido') inner = vPedido();
+  else if (L.kind === 'pedido') inner = vPedido(L);
+  else if (L.kind === 'bar') inner = vBarStatus();
   else if (L.kind === 'new-appt') inner = vNewAppt(L);
   else if (L.kind === 'draft') inner = vDraftMsg(L.id, L.k);
   else inner = vSheet(L);
@@ -193,6 +194,33 @@ document.addEventListener('click', async e => {
       case 'cd-add': PED[D.id] = Math.min(20, (PED[D.id] || 0) + 1); pedSave(); if (LAYER) renderLayer(); else { render(true); toast('Adicionado ao seu pedido.', 'plus'); } break;
       case 'cd-dec': PED[D.id] = Math.max(0, (PED[D.id] || 0) - 1); if (!PED[D.id]) delete PED[D.id]; pedSave(); render(true); renderLayer(); break;
       case 'cd-clear': PED = {}; pedSave(); closeLayer(); render(true); break;
+      case 'cd-send': {
+        const items = pedItems().map(x => ({ id: x.it.id, qty: x.q }));
+        LAYER.sending = true; LAYER.err = null; LAYER.keep = true; renderLayer();
+        try {
+          const b = await API.post('/publico/pedidos-bar', { name: PEDF.name, proId: PEDF.proId || null, note: PEDF.note, items }, ME ? 'client' : undefined);
+          BAR = b; BAR_ID = b.id;
+          try { sessionStorage.setItem(BAR_KEY, b.id); localStorage.setItem(BAR_NAME, PEDF.name); } catch (e) { /* */ }
+          PED = {}; pedSave(); PEDF.note = '';
+          openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
+        } catch (err) {
+          if (err.status === 409) { CARD = null; await loadCardapio(); }
+          if (LAYER) { LAYER.sending = false; LAYER.err = err.message; renderLayer(); }
+        }
+        break;
+      }
+      case 'bar-open': await loadBar(); openLayer({ kind: 'bar' }); break;
+      case 'bar-forget': BAR = null; BAR_ID = null; try { sessionStorage.removeItem(BAR_KEY); } catch (e) { /* */ } closeLayer(); render(true); break;
+      case 'bar-st': {
+        try {
+          await API.put(`/gestao/pedidos-bar/${D.id}`, { status: D.st }, 'staff');
+          CACHE['pedidos-bar'] = { data: await API.get('/gestao/pedidos-bar', 'staff'), at: Date.now() };
+          invalidate('contadores'); render(true);
+          toast(D.st === 'entregue' ? 'Pedido marcado como entregue.' : D.st === 'cancelado' ? 'Pedido cancelado.' : 'Pedido em preparo.', D.st === 'cancelado' ? 'x' : 'check');
+        } catch (err) { toast(err.message, 'alert'); }
+        break;
+      }
+      case 'cdtab': UI.cdTab = D.k; render(true); break;
       case 'cd-open': openLayer({ kind: 'pedido' }); break;
       case 'cd-retry': CARD_ERR = null; render(true); break;
       // cardapio na gestao
@@ -558,11 +586,33 @@ document.addEventListener('visibilitychange', async () => {
   if (document.hidden || LAYER || Date.now() - catalogAt < 30000) return;
   catalogAt = Date.now();
   if (CARD) CARD = null;
-  await Promise.all([loadCatalog(), loadVitrine(), UI.screen === 'cardapio' ? loadCardapio() : null]);
+  await Promise.all([loadCatalog(), loadVitrine(), UI.screen === 'cardapio' ? loadCardapio() : null, UI.screen === 'cardapio' ? loadBar() : null]);
   UI.draft.serviceIds = UI.draft.serviceIds.filter(i => svc(i));
   if (!LAYER) render(true, true);
 });
 // keyboard access for clickable table rows
+// Acompanhamento ao vivo:
+// - cliente com pedido aberto na tela Cardápio vê o status mudar (a cada 15 s);
+// - equipe na gestão recebe aviso de pedido novo (a cada 20 s).
+setInterval(async () => {
+  if (document.hidden || UI.mode !== 'client' || UI.screen !== 'cardapio' || !barOpen()) return;
+  if (await loadBar()) { if (LAYER && LAYER.kind === 'bar') renderLayer(); if (!LAYER) render(true, true); else { const y = window.scrollY; render(true, true); window.scrollTo(0, y); } }
+}, 15000);
+function bip() {
+  try { const a = new (window.AudioContext || window.webkitAudioContext)(); [0, .18].forEach(t => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.12, a.currentTime + t); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + t + .15); o.connect(g).connect(a.destination); o.start(a.currentTime + t); o.stop(a.currentTime + t + .16); }); } catch (e) { /* sem som */ }
+}
+setInterval(async () => {
+  if (document.hidden || UI.mode !== 'admin' || !STAFF) return;
+  try {
+    const c = await API.get('/gestao/contadores', 'staff');
+    const prev = CACHE.contadores && CACHE.contadores.data ? CACHE.contadores.data.barOpen : undefined;
+    CACHE.contadores = Object.assign(CACHE.contadores || {}, { data: c, at: Date.now(), stale: false, path: '/gestao/contadores', auth: 'staff' });
+    if (c.barOpen === prev) return;
+    invalidate('pedidos-bar');
+    if (prev !== undefined && c.barOpen > prev) { toast('Novo pedido de bebida no cardápio.', 'glass'); bip(); }
+    if (!LAYER) render(true, true);
+  } catch (e) { /* tenta de novo no proximo ciclo */ }
+}, 20000);
 document.addEventListener('scroll', e => { if (e.target.classList && e.target.classList.contains('vit-track')) vitBars(); }, true);
 window.addEventListener('resize', vitBars);
 document.addEventListener('keydown', e => {
@@ -577,6 +627,9 @@ document.addEventListener('input', e => {
     const fld = t.closest('.fld'); if (fld && fld.classList.contains('err')) { const errs = validate(UI.draft); const k = t.id.slice(3); if (!errs[k]) { fld.classList.remove('err'); fld.querySelector('.msg')?.remove(); if (UI.formErrors) delete UI.formErrors[k]; } }
     const pf = document.querySelector('.prefill'); if (pf) pf.remove();
   }
+  if (t.id === 'ped-name') PEDF.name = t.value;
+  if (t.id === 'ped-note') PEDF.note = t.value;
+  if (t.id === 'ped-pro') PEDF.proId = t.value;
   if (t.id === 'stk-q') { UI.stkQ = t.value; const E = CACHE.estoque && CACHE.estoque.data; if (E) document.getElementById('stk-results').innerHTML = vStockList(E); }
   if (t.id === 'in-stkqty' && t.dataset.price && document.getElementById('in-stkval')) document.getElementById('in-stkval').value = Math.round((Number(t.value) || 0) * Number(t.dataset.price) * 100) / 100;
   if (t.id === 'client-q') { UI.clientQ = t.value; document.getElementById('client-results').innerHTML = vClientsList(); }
@@ -610,7 +663,7 @@ document.addEventListener('focusout', e => {
   const k = t.id.slice(3), errs = validate(UI.draft), fld = t.closest('.fld');
   if (errs[k] && t.value) { if (!fld.classList.contains('err')) { fld.classList.add('err'); fld.insertAdjacentHTML('beforeend', `<div class="msg">${ic('alert')}${errs[k]}</div>`); } }
 });
-const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]' };
+const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]', 'ped-form': '[data-act="cd-send"]' };
 document.addEventListener('submit', e => {
   e.preventDefault();
   const sel = SUBMIT[e.target.id];
@@ -648,6 +701,7 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   render();
   // a vitrine chega depois e redesenha o inicio sem travar a abertura do site
   const vit = loadVitrine();
+  loadBar().then(ch => { if (ch && UI.mode === 'client' && UI.screen === 'cardapio' && !LAYER) render(true, true); });
   await Promise.all([loadCatalog(), loadMe(), UI.mode === 'admin' ? loadStaff() : Promise.resolve()]);
   if (pg) {
     try { await checkPayment(pg[1]); UI.screen = 'confirmado'; UI.mode = 'client'; }

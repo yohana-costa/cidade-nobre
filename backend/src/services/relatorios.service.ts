@@ -1,3 +1,4 @@
+import { pedidosAbertos } from './pedidos-bar.service';
 import { prisma } from '../lib/prisma';
 import { falha } from '../lib/erros';
 import { DATA_RE, addDays, agoraMin, fDM, fRel, hoje, money0, tmin } from '../lib/datas';
@@ -263,6 +264,7 @@ export async function contadores() {
     agendaToday: b.appts.filter((a) => a.date === b.T && a.status !== 'cancelado').length,
     lapsed: lapsedClients(b).length,
     stockLow: await produtosParaRepor(),
+    barOpen: await pedidosAbertos(),
   };
 }
 

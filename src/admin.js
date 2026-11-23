@@ -10,7 +10,7 @@ const ANAV = [
   { id: 'oportunidades', label: 'Oportunidades', icon: 'target' },
   { id: 'config', label: 'Configurações', icon: 'edit' },
 ];
-const ATITLE = { dash: ['Visão geral', 'Indicadores calculados a partir da agenda'], agenda: ['Agenda', 'Atendimentos por dia e profissional'], clientes: ['Clientes', 'Histórico, frequência e pontos de cada cliente'], servicos: ['Serviços e equipe', 'Catálogo, durações, preços e quem realiza cada serviço'], estoque: ['Estoque', 'Produtos à venda, entradas, vendas e reposição'], cardapio: ['Cardápio', 'Drinks e bebidas que aparecem no site'], fidelidade: ['Clube Cidade Nobre', 'Saldos, movimentações, benefícios e indicações'], oportunidades: ['Oportunidades de retorno', 'Clientes que pedem uma ação de relacionamento'], config: ['Configurações', 'Regras do clube, funcionamento, agenda e equipe de acesso'] };
+const ATITLE = { dash: ['Visão geral', 'Indicadores calculados a partir da agenda'], agenda: ['Agenda', 'Atendimentos por dia e profissional'], clientes: ['Clientes', 'Histórico, frequência e pontos de cada cliente'], servicos: ['Serviços e equipe', 'Catálogo, durações, preços e quem realiza cada serviço'], estoque: ['Estoque', 'Produtos à venda, entradas, vendas e reposição'], cardapio: ['Cardápio', 'Pedidos de bebida do site e os itens do cardápio'], fidelidade: ['Clube Cidade Nobre', 'Saldos, movimentações, benefícios e indicações'], oportunidades: ['Oportunidades de retorno', 'Clientes que pedem uma ação de relacionamento'], config: ['Configurações', 'Regras do clube, funcionamento, agenda e equipe de acesso'] };
 const PERFIS = { ADMIN: 'Administrador', GERENTE: 'Gerente', OPERADOR: 'Operador' };
 const canManage = () => STAFF && ['ADMIN', 'GERENTE'].includes(STAFF.perfil);
 const isAdmin = () => STAFF && STAFF.perfil === 'ADMIN';
@@ -403,7 +403,36 @@ function vProdEdit(id, L) {
   `${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Remover</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="prod-save" data-id="${id || ''}">Salvar</button>`);
 }
 /* ---------- cardápio de bebidas ---------- */
+const BST = { novo: ['Novo', 'st-confirmado'], preparando: ['Preparando', 'st-agendado'], entregue: ['Entregue', 'st-concluido'], cancelado: ['Cancelado', 'st-cancelado'] };
+const ago = iso => { const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return m < 1 ? 'agora' : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}`; };
+const hhmm = iso => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+function barOrder(o) {
+  const open = o.status === 'novo' || o.status === 'preparando';
+  return `<div class="bo st-${o.status}">
+    <div class="bo-h"><b>Nº ${o.number}</b><span class="pill ${BST[o.status][1]}">${BST[o.status][0]}</span><span class="bo-t">${hhmm(o.at)} · ${ago(o.at)}</span></div>
+    <div class="bo-who">${ic('user')}<b>${esc(o.name)}</b>${o.pro ? `<span>com ${esc(o.pro)}</span>` : ''}</div>
+    <ul class="bo-items">${o.items.map(i => `<li><b>${i.qty}×</b> ${esc(i.name)}</li>`).join('')}</ul>
+    ${o.note ? `<div class="bo-note">${ic('msg')}${esc(o.note)}</div>` : ''}
+    <div class="bo-f"><span class="bo-tot tnum">${money(o.total)}</span>${open ? `<span class="bo-acts">${o.status === 'novo' ? `<button class="btn btn-line btn-sm" data-act="bar-st" data-id="${o.id}" data-st="preparando">Preparar</button>` : ''}<button class="btn btn-gold btn-sm" data-act="bar-st" data-id="${o.id}" data-st="entregue">${ic('check')} Entregue</button><button class="link" data-act="bar-st" data-id="${o.id}" data-st="cancelado">Cancelar</button></span>` : ''}</div>
+  </div>`;
+}
+function vBarOrders() {
+  const { d: P, wait } = load('pedidos-bar', '/gestao/pedidos-bar');
+  if (!P) return wait;
+  const open = P.orders.filter(o => o.status === 'novo' || o.status === 'preparando').sort((a, b) => a.at.localeCompare(b.at));
+  const done = P.orders.filter(o => o.status === 'entregue' || o.status === 'cancelado');
+  return `<p class="note" style="margin:0 0 12px">Os pedidos chegam aqui sozinhos, com aviso e som. Pagamento na barbearia.</p>
+    <section class="panel"><div class="panel-h"><h2>Para atender</h2><span class="note">${open.length}</span></div><div class="panel-b">${open.length ? `<div class="bo-grid">${open.map(barOrder).join('')}</div>` : '<div class="empty">Nenhum pedido esperando. Quando um cliente pedir pelo site, ele aparece aqui.</div>'}</div></section>
+    ${done.length ? `<section class="panel" style="margin-top:14px"><div class="panel-h"><h2>Atendidos nas últimas 12 horas</h2><span class="note">${done.length}</span></div><div class="panel-b"><div class="bo-grid">${done.map(barOrder).join('')}</div></div></section>` : ''}`;
+}
 function vCardAdmin() {
+  const tab = UI.cdTab || 'pedidos';
+  const N = CACHE.contadores && CACHE.contadores.data;
+  const tabs = `<div class="seg2" style="margin-bottom:14px">${[['pedidos', `Pedidos${N && N.barOpen ? `<span class="n">${N.barOpen}</span>` : ''}`], ['itens', 'Itens do cardápio']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-act="cdtab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  if (tab === 'pedidos') return tabs + vBarOrders();
+  return tabs + vCardItems();
+}
+function vCardItems() {
   const { d: C, wait } = load('cardapio', '/gestao/cardapio');
   const can = canManage();
   const toolbar = `<div class="toolbar"><span class="note">O que estiver visível aparece na tela Cardápio do site, na ordem desta lista.</span>${can ? `<button class="btn btn-gold btn-sm" data-act="card-new">${ic('plus')} Novo item</button>` : ''}</div>`;
@@ -599,7 +628,7 @@ function vStaffLogin() {
 /* ---------- admin shell ---------- */
 function adminNav() {
   const N = need('contadores', '/gestao/contadores', 'staff', 60000);
-  const counts = N ? { agenda: N.agendaToday, oportunidades: N.lapsed, ...(N.stockLow ? { estoque: N.stockLow } : {}) } : {};
+  const counts = N ? { agenda: N.agendaToday, oportunidades: N.lapsed, ...(N.stockLow ? { estoque: N.stockLow } : {}), ...(N.barOpen ? { cardapio: N.barOpen } : {}) } : {};
   return `<div class="anav">${ANAV.map(n => `<button class="${UI.admin === n.id ? 'on' : ''}" data-act="anav" data-id="${n.id}">${ic(n.icon)}${n.label}${counts[n.id] !== undefined ? `<span class="ct">${counts[n.id]}</span>` : ''}</button>`).join('')}</div>`;
 }
 function vAdmin() {

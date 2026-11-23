@@ -158,20 +158,59 @@ function vCardapio() {
     <div class="cd-hero-in"><img class="cd-crest" src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"><h1>Cardápio Premium</h1><p>Drinks e bebidas para pedir durante sua experiência.</p></div>
   </section>
   <div class="d-page wrap cd-body">
+    ${barCard()}
     ${!CARD ? (CARD_ERR ? `<div class="empty">Não foi possível carregar o cardápio. <button class="link" data-act="cd-retry">Tentar de novo</button></div>` : '<div class="empty">Carregando o cardápio…</div>')
       : CARD.items.length ? CARD.categories.map(c => cdSection(c, CARD.items.filter(i => i.cat === c.id))).join('') : '<div class="empty">O cardápio está sendo preparado.</div>'}
   </div>
   ${n ? `<div class="cd-bar"><button class="cd-bar-in" data-act="cd-open"><span class="cd-bar-n">${n}</span><span>Meu pedido</span><b class="tnum">${money(tot)}</b><span class="cd-bar-go">Ver ${ic('right')}</span></button></div>` : ''}
   </div>`;
 }
-function vPedido() {
+// pedido enviado: a equipe recebe na gestão e o cliente acompanha aqui
+const BAR_KEY = 'cn-bar-v1', BAR_NAME = 'cn-bar-nome';
+let BAR = null;
+let BAR_ID = (() => { try { return sessionStorage.getItem(BAR_KEY); } catch (e) { return null; } })();
+let PEDF = { name: '', proId: '', note: '' };
+const BAR_ST = { novo: ['Recebido', 'A equipe recebeu seu pedido.'], preparando: ['Preparando', 'Seu pedido está sendo preparado.'], entregue: ['Entregue', 'Pedido entregue. Aproveite!'], cancelado: ['Cancelado', 'A equipe cancelou este pedido. Fale com a recepção.'] };
+const barOpen = () => BAR && (BAR.status === 'novo' || BAR.status === 'preparando');
+async function loadBar() {
+  if (!BAR_ID) return false;
+  try { const b = await API.get(`/publico/pedidos-bar/${encodeURIComponent(BAR_ID)}`); const changed = !BAR || BAR.status !== b.status; BAR = b; return changed; }
+  catch (e) { if (e.status === 404) { BAR = null; BAR_ID = null; try { sessionStorage.removeItem(BAR_KEY); } catch (x) { /* */ } } return false; }
+}
+function barSteps(st) {
+  const steps = ['novo', 'preparando', 'entregue'];
+  const k = steps.indexOf(st);
+  return `<ol class="bar-steps">${steps.map((x, n) => `<li class="${n < k ? 'done' : n === k ? 'cur' : ''}"><span>${n < k || st === 'entregue' ? ic('check') : n + 1}</span>${BAR_ST[x][0]}</li>`).join('')}</ol>`;
+}
+function barCard() {
+  if (!BAR || (!barOpen() && BAR.status !== 'entregue' && BAR.status !== 'cancelado')) return '';
+  return `<button class="cd-status st-${BAR.status}" data-act="bar-open"><span class="cd-status-ic">${ic(BAR.status === 'cancelado' ? 'alert' : BAR.status === 'entregue' ? 'check' : 'glass')}</span><span><b>Pedido nº ${BAR.number} · ${BAR_ST[BAR.status][0]}</b><small>${BAR_ST[BAR.status][1]}</small></span>${ic('right', 'chev')}</button>`;
+}
+function vBarStatus() {
+  if (!BAR) return sheet('Seu pedido', '', '<div class="empty">Pedido não encontrado.</div>');
+  const [t, d] = BAR_ST[BAR.status] || BAR_ST.novo;
+  return sheet(`Pedido nº ${BAR.number}`, t, `${BAR.status === 'cancelado' ? `<div class="callout">${ic('alert')}<span>${d}</span></div>` : `${barSteps(BAR.status)}<p class="note" style="text-align:center;margin:6px 0 12px">${d}${barOpen() ? ' Esta tela atualiza sozinha.' : ''}</p>`}
+    <div class="ped-list">${BAR.items.map(i => `<div class="ped-row ped-sent"><span class="ped-nm"><b>${i.qty}× ${esc(i.name)}</b><small>${money(i.price)} cada</small></span><span class="ped-v tnum">${money(i.qty * i.price)}</span></div>`).join('')}
+    <div class="ped-tot"><span>Total</span><b class="tnum">${money(BAR.total)}</b></div></div>
+    <p class="note">Pagamento na barbearia.</p>`,
+  `${!barOpen() ? '<button class="btn btn-ghost" data-act="bar-forget">Fazer outro pedido</button>' : ''}<button class="btn btn-gold" data-act="close">Ok</button>`);
+}
+function vPedido(L) {
   const list = pedItems();
   const tot = list.reduce((s, x) => s + x.q * x.it.price, 0);
   if (!list.length) return sheet('Meu pedido', '', '<div class="empty">Seu pedido está vazio. Toque em Pedir no cardápio.</div>', '<button class="btn btn-gold" data-act="close">Voltar ao cardápio</button>');
-  return sheet('Meu pedido', 'Mostre esta lista ao seu barbeiro ou na recepção', `<div class="ped-list">${list.map(({ it, q }) => `<div class="ped-row">${cdPh(it)}<span class="ped-nm"><b>${esc(it.name)}</b><small>${money(it.price)} cada</small></span><span class="ped-q"><button data-act="cd-dec" data-id="${it.id}" aria-label="Tirar um">${ic('minus')}</button><b class="tnum">${q}</b><button data-act="cd-add" data-id="${it.id}" aria-label="Colocar mais um">${ic('plus')}</button></span><span class="ped-v tnum">${money(q * it.price)}</span></div>`).join('')}
+  if (!PEDF.name) { let saved = ''; try { saved = localStorage.getItem(BAR_NAME) || ''; } catch (e) { /* */ } PEDF.name = (ME && ME.client && ME.client.name) || saved; }
+  const pros = (DB.pros || []);
+  return sheet('Meu pedido', 'A equipe recebe na hora e leva até você', `<div class="ped-list">${list.map(({ it, q }) => `<div class="ped-row">${cdPh(it)}<span class="ped-nm"><b>${esc(it.name)}</b><small>${money(it.price)} cada</small></span><span class="ped-q"><button data-act="cd-dec" data-id="${it.id}" aria-label="Tirar um">${ic('minus')}</button><b class="tnum">${q}</b><button data-act="cd-add" data-id="${it.id}" aria-label="Colocar mais um">${ic('plus')}</button></span><span class="ped-v tnum">${money(q * it.price)}</span></div>`).join('')}
     <div class="ped-tot"><span>Total</span><b class="tnum">${money(tot)}</b></div></div>
+    <form class="form" id="ped-form" style="margin-top:6px" novalidate>
+      <div class="fld"><label for="ped-name">Seu nome</label><input id="ped-name" maxlength="60" autocomplete="name" value="${esc(PEDF.name)}" placeholder="Para a equipe saber de quem é"></div>
+      ${pros.length ? `<div class="fld"><label for="ped-pro">Quem está te atendendo?<em>opcional</em></label><select id="ped-pro"><option value="">Ainda não sei</option>${pros.map(p => `<option value="${esc(p.id)}" ${PEDF.proId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>` : ''}
+      <div class="fld"><label for="ped-note">Observação<em>opcional</em></label><input id="ped-note" maxlength="140" value="${esc(PEDF.note)}" placeholder="Ex.: sem gelo, com limão"></div>
+      ${L && L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
+    </form>
     <p class="note">O pagamento das bebidas é feito na barbearia.</p>`,
-  `<button class="btn btn-ghost" data-act="cd-clear">Limpar pedido</button><button class="btn btn-gold" data-act="close">Continuar</button>`);
+  `<button class="btn btn-ghost" data-act="cd-clear">Limpar</button><button class="btn btn-gold" data-act="cd-send" ${L && L.sending ? 'disabled' : ''}>${L && L.sending ? 'Enviando…' : 'Enviar pedido'}</button>`);
 }
 
 /* ---------- Serviços ---------- */

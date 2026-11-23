@@ -6,6 +6,7 @@ import * as catalogo from '../services/catalogo.service';
 import * as configuracao from '../services/configuracao.service';
 import * as mercadoPago from '../services/mercado-pago.service';
 import * as cardapioSvc from '../services/cardapio.service';
+import * as bar from '../services/pedidos-bar.service';
 import * as estoque from '../services/estoque.service';
 import { AuthRequest } from '../middleware/auth';
 
@@ -70,3 +71,5 @@ export const removerItemCardapio = h((req) => cardapioSvc.removerItem(req.params
 export const moverItemCardapio = h((req) => cardapioSvc.moverItem(req.params.id, req.body));
 export const enviarFotoCardapio = h((req) => cardapioSvc.enviarFoto(req.params.id, req.file));
 export const removerFotoCardapio = h((req) => cardapioSvc.tirarFoto(req.params.id));
+export const pedidosBar = h(() => bar.listaGestao());
+export const statusPedidoBar = h((req) => bar.mudarStatus(req.params.id, req.body));
