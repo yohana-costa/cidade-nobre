@@ -86,7 +86,7 @@ function vitTrack(cards) {
 }
 const vitCard = (p, go) => `<div class="vit-card">
   <div class="vit-img">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : `<span class="vit-ph">${ic('box')}</span>`}</div>
-  <div class="vit-info"><span class="vit-name">${esc(p.name)}</span><span class="vit-foot"><span class="vit-price tnum">${money(p.price)}</span>${go ? `<span class="vit-go">${ic('arrow')}</span>` : ''}</span></div>
+  <div class="vit-info"><span class="vit-name">${esc(p.name)}</span><span class="vit-foot">${p.price > 0 ? `<span class="vit-price tnum">${money(p.price)}</span>` : ''}${go ? `<span class="vit-go">${ic('arrow')}</span>` : ''}</span></div>
 </div>`;
 function vVitrine() {
   if (!VIT) return '';
