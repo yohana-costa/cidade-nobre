@@ -256,6 +256,23 @@ model Produto {
   @@map("produtos")
 }
 
+// Cardapio de bebidas do site (drinks, cervejas, whisky e sem alcool). Nao mexe no estoque.
+model ItemCardapio {
+  id            String   @id @default(uuid())
+  nome          String
+  categoria     String // drinks | cervejas | whisky | sem_alcool
+  precoCentavos Int      @default(0)
+  foto          String? // /uploads/... enviada pela gestao ou /assets/cardapio/... (itens que vieram prontos)
+  visivel       Boolean  @default(true) // false = escondido do site, sem apagar
+  ativo         Boolean  @default(true)
+  ordem         Int      @default(0)
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  @@index([categoria, ordem])
+  @@map("cardapio_itens")
+}
+
 model MovimentoEstoque {
   id            String   @id @default(uuid())
   produtoId     String

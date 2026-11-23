@@ -43,6 +43,14 @@ router.delete('/produtos/:id', requireGerente, c.removerProduto);
 router.post('/produtos/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoProduto);
 router.delete('/produtos/:id/foto', requireGerente, c.removerFotoProduto);
 router.post('/produtos/:id/movimentos', c.movimentarEstoque);
+// cardapio de bebidas do site
+router.get('/cardapio', c.cardapio);
+router.post('/cardapio', requireGerente, c.criarItemCardapio);
+router.put('/cardapio/:id', requireGerente, c.atualizarItemCardapio);
+router.delete('/cardapio/:id', requireGerente, c.removerItemCardapio);
+router.post('/cardapio/:id/mover', requireGerente, c.moverItemCardapio);
+router.post('/cardapio/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoCardapio);
+router.delete('/cardapio/:id/foto', requireGerente, c.removerFotoCardapio);
 
 router.get('/configuracoes', c.obterConfiguracao);
 router.put('/configuracoes', requireAdmin, c.atualizarConfiguracao);

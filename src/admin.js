@@ -5,11 +5,12 @@ const ANAV = [
   { id: 'clientes', label: 'Clientes', icon: 'users' },
   { id: 'servicos', label: 'Serviços e equipe', icon: 'scissors' },
   { id: 'estoque', label: 'Estoque', icon: 'box' },
+  { id: 'cardapio', label: 'Cardápio', icon: 'glass' },
   { id: 'fidelidade', label: 'Fidelidade', icon: 'crown' },
   { id: 'oportunidades', label: 'Oportunidades', icon: 'target' },
   { id: 'config', label: 'Configurações', icon: 'edit' },
 ];
-const ATITLE = { dash: ['Visão geral', 'Indicadores calculados a partir da agenda'], agenda: ['Agenda', 'Atendimentos por dia e profissional'], clientes: ['Clientes', 'Histórico, frequência e pontos de cada cliente'], servicos: ['Serviços e equipe', 'Catálogo, durações, preços e quem realiza cada serviço'], estoque: ['Estoque', 'Produtos à venda, entradas, vendas e reposição'], fidelidade: ['Clube Cidade Nobre', 'Saldos, movimentações, benefícios e indicações'], oportunidades: ['Oportunidades de retorno', 'Clientes que pedem uma ação de relacionamento'], config: ['Configurações', 'Regras do clube, funcionamento, agenda e equipe de acesso'] };
+const ATITLE = { dash: ['Visão geral', 'Indicadores calculados a partir da agenda'], agenda: ['Agenda', 'Atendimentos por dia e profissional'], clientes: ['Clientes', 'Histórico, frequência e pontos de cada cliente'], servicos: ['Serviços e equipe', 'Catálogo, durações, preços e quem realiza cada serviço'], estoque: ['Estoque', 'Produtos à venda, entradas, vendas e reposição'], cardapio: ['Cardápio', 'Drinks e bebidas que aparecem no site'], fidelidade: ['Clube Cidade Nobre', 'Saldos, movimentações, benefícios e indicações'], oportunidades: ['Oportunidades de retorno', 'Clientes que pedem uma ação de relacionamento'], config: ['Configurações', 'Regras do clube, funcionamento, agenda e equipe de acesso'] };
 const PERFIS = { ADMIN: 'Administrador', GERENTE: 'Gerente', OPERADOR: 'Operador' };
 const canManage = () => STAFF && ['ADMIN', 'GERENTE'].includes(STAFF.perfil);
 const isAdmin = () => STAFF && STAFF.perfil === 'ADMIN';
@@ -316,7 +317,7 @@ function vSvcEdit(id, L) {
   <div class="modal-f">${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Remover</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="svc-save" data-id="${id || ''}">Salvar</button></div></div>`;
 }
 function photoField(kind, id, src, hasUpload, round) {
-  return `<div class="fld"><label>Foto${kind === 'svc' ? '<em>aparece no site para o cliente</em>' : ''}</label><div class="photo-up">${src ? `<img class="${round ? 'round' : ''}" src="${esc(src)}" alt="">` : `<span class="photo-ph ${round ? 'round' : ''}">${ic(kind === 'svc' ? 'scissors' : kind === 'prod' ? 'box' : 'userF')}</span>`}
+  return `<div class="fld"><label>Foto${kind === 'svc' ? '<em>aparece no site para o cliente</em>' : ''}</label><div class="photo-up">${src ? `<img class="${round ? 'round' : ''}" src="${esc(src)}" alt="">` : `<span class="photo-ph ${round ? 'round' : ''}">${ic(kind === 'svc' ? 'scissors' : kind === 'prod' ? 'box' : kind === 'card' ? 'glass' : 'userF')}</span>`}
     <div class="photo-acts"><label class="btn btn-line btn-sm" for="up-photo">${ic('plus')} ${hasUpload ? 'Trocar foto' : 'Enviar foto'}</label><input id="up-photo" class="sr" type="file" accept="image/jpeg,image/png,image/webp" data-up="${kind}" data-id="${id || ''}">${hasUpload ? `<button type="button" class="link" data-act="photo-rm" data-k="${kind}" data-id="${id || ''}">Remover foto</button>` : ''}</div></div>
     <p class="note" style="margin-top:6px">JPG, PNG ou WEBP. A foto é reduzida antes do envio.</p></div>`;
 }
@@ -400,6 +401,39 @@ function vProdEdit(id, L) {
     ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
   </form>${L.confirmDel ? `<div class="confirm-box"><p>Remover ${esc(p.name)} do estoque? Ele sai da lista; as vendas e entradas antigas continuam nas movimentações.</p><div class="row"><button class="btn btn-ghost btn-sm" data-act="svc-del-cancel">Voltar</button><button class="btn btn-gold btn-sm" data-act="prod-del" data-id="${id}">Remover produto</button></div></div>` : ''}`,
   `${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Remover</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="prod-save" data-id="${id || ''}">Salvar</button>`);
+}
+/* ---------- cardápio de bebidas ---------- */
+function vCardAdmin() {
+  const { d: C, wait } = load('cardapio', '/gestao/cardapio');
+  const can = canManage();
+  const toolbar = `<div class="toolbar"><span class="note">O que estiver visível aparece na tela Cardápio do site, na ordem desta lista.</span>${can ? `<button class="btn btn-gold btn-sm" data-act="card-new">${ic('plus')} Novo item</button>` : ''}</div>`;
+  if (!C) return toolbar + wait;
+  return toolbar + C.categories.map(c => {
+    const its = C.items.filter(i => i.cat === c.id);
+    return `<section class="panel cdm-panel"><div class="panel-h"><h2>${esc(c.name)}</h2><span class="note">${its.length} ite${its.length === 1 ? 'm' : 'ns'}</span></div><div class="panel-b">
+      ${its.length ? `<div class="cdm-list">${its.map((i, k) => `<div class="cdm-row ${i.visible ? '' : 'off'}">
+        <span class="cdm-ph">${i.photo ? `<img src="${esc(i.photo)}" alt="">` : ic(CD_ICON[i.cat] || 'glass')}</span>
+        <span class="cdm-nm"><b>${esc(i.name)}</b><small>${money(i.price)}${i.visible ? '' : ' · escondido do site'}</small></span>
+        ${can ? `<span class="cdm-acts"><button class="ib" data-act="card-move" data-id="${i.id}" data-dir="up" aria-label="Subir" ${k ? '' : 'disabled'}>${ic('up')}</button><button class="ib" data-act="card-move" data-id="${i.id}" data-dir="down" aria-label="Descer" ${k < its.length - 1 ? '' : 'disabled'}>${ic('down')}</button><button class="link" data-act="card-vis" data-id="${i.id}">${i.visible ? 'Esconder' : 'Mostrar'}</button><button class="btn btn-line btn-sm" data-act="card-edit" data-id="${i.id}">Editar</button></span>` : ''}
+      </div>`).join('')}</div>` : '<div class="empty">Nenhum item nesta categoria.</div>'}
+    </div></section>`;
+  }).join('');
+}
+function vCardEdit(id, L) {
+  const C = CACHE.cardapio && CACHE.cardapio.data;
+  if (!C) return sheet('Cardápio', '', vLoading());
+  const it = id ? C.items.find(x => x.id === id) : { name: '', cat: L.cat || 'drinks', price: '', visible: true, photo: null };
+  if (!it) return sheet('Cardápio', '', '<div class="empty">Item não encontrado.</div>');
+  const v = Object.assign({}, it, L.v || {});
+  return sheet(id ? esc(it.name) : 'Novo item do cardápio', id ? 'Editar item' : 'Aparece na tela Cardápio do site', `<form class="form" id="card-form" style="margin-top:0" novalidate>
+    ${photoField('card', id, L.preview || it.photo || '', !!(it.photo || L.preview), false)}
+    <div class="fld"><label for="in-cdname">Nome</label><input id="in-cdname" maxlength="60" value="${esc(v.name)}" placeholder="Ex.: Gin Tônica"></div>
+    <div class="fld-row"><div class="fld"><label for="in-cdcat">Categoria</label><select id="in-cdcat">${C.categories.map(c => `<option value="${c.id}" ${v.cat === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="fld"><label for="in-cdprice">Preço (R$)</label><input id="in-cdprice" type="number" min="0" max="10000" step="0.01" value="${esc(v.price)}"></div></div>
+    <label class="cd-chk"><input type="checkbox" id="in-cdvis" ${v.visible ? 'checked' : ''}> Aparece no cardápio do site</label>
+    ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
+  </form>${L.confirmDel ? `<div class="confirm-box"><p>Apagar ${esc(it.name)} do cardápio?</p><div class="row"><button class="btn btn-ghost btn-sm" data-act="svc-del-cancel">Voltar</button><button class="btn btn-gold btn-sm" data-act="card-del" data-id="${id}">Apagar item</button></div></div>` : ''}`,
+  `${id ? `<button class="btn btn-ghost" data-act="svc-del-ask">Apagar</button>` : ''}<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="card-save" data-id="${id || ''}">Salvar</button>`);
 }
 function vStkMove(L) {
   const E = CACHE.estoque && CACHE.estoque.data;
@@ -572,7 +606,7 @@ function vAdmin() {
   if (!STAFF) return vStaffLogin();
   if (!ATITLE[UI.admin]) UI.admin = 'dash';
   const [t, sub] = ATITLE[UI.admin];
-  const map = { dash: vDash, agenda: vAgenda, clientes: vClientes, servicos: vServAdmin, estoque: vEstoque, fidelidade: vFidelidade, oportunidades: vOpp, config: vConfig };
+  const map = { dash: vDash, agenda: vAgenda, clientes: vClientes, servicos: vServAdmin, estoque: vEstoque, cardapio: vCardAdmin, fidelidade: vFidelidade, oportunidades: vOpp, config: vConfig };
   return `<div class="ad">
     <aside class="ad-side">
       <div class="ad-logo">${lockup(42)}<small>Gestão da barbearia</small></div>

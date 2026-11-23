@@ -52,6 +52,8 @@ function renderLayer() {
   else if (L.kind === 'pro-edit') inner = vProEdit(L.id, L);
   else if (L.kind === 'prod-edit') inner = vProdEdit(L.id, L);
   else if (L.kind === 'stk-move') inner = vStkMove(L);
+  else if (L.kind === 'card-edit') inner = vCardEdit(L.id, L);
+  else if (L.kind === 'pedido') inner = vPedido();
   else if (L.kind === 'new-appt') inner = vNewAppt(L);
   else if (L.kind === 'draft') inner = vDraftMsg(L.id, L.k);
   else inner = vSheet(L);
@@ -101,14 +103,16 @@ function setMode(mode, push) {
 }
 
 /* ---- fotos da gestão ---- */
-const PHOTO_PATH = { svc: id => `/gestao/servicos/${id}/imagem`, pro: id => `/gestao/profissionais/${id}/foto`, prod: id => `/gestao/produtos/${id}/foto` };
+const PHOTO_PATH = { svc: id => `/gestao/servicos/${id}/imagem`, pro: id => `/gestao/profissionais/${id}/foto`, prod: id => `/gestao/produtos/${id}/foto`, card: id => `/gestao/cardapio/${id}/foto` };
 // Recarrega o catálogo da gestão e o do site e redesenha o formulário aberto com a foto nova.
 async function photoChanged(kind) {
   if (kind === 'prod') CACHE.estoque = { data: await API.get('/gestao/estoque', 'staff'), at: Date.now() };
+  else if (kind === 'card') { CACHE.cardapio = { data: await API.get('/gestao/cardapio', 'staff'), at: Date.now() }; CARD = null; }
   else { CACHE['cat-gestao'] = { data: await API.get('/gestao/catalogo', 'staff'), at: Date.now() }; adminChanged(); await loadCatalog(); }
   if (LAYER) { LAYER.keep = true; LAYER.v = formSnapshot(); renderLayer(); }
   render(true);
 }
+const cardForm = () => ({ name: val('in-cdname'), cat: val('in-cdcat'), price: val('in-cdprice'), visible: !!document.getElementById('in-cdvis')?.checked });
 const prodForm = () => ({ name: val('in-prname'), desc: val('in-prdesc'), price: val('in-prprice'), cost: val('in-prcost'), min: val('in-prmin'), qty: val('in-prqty'), shelf: val('in-prshelf') || 'casa', cat: val('in-prcat') });
 // o que já foi digitado no formulário aberto (a foto vem do servidor)
 function formSnapshot() {
@@ -116,6 +120,7 @@ function formSnapshot() {
   if (g('in-sname')) return { name: val('in-sname'), desc: val('in-sdesc'), cat: val('in-scat'), dur: Number(val('in-dur')), price: Number(val('in-price')), visible: g('in-svis').checked };
   if (g('in-pname')) return { name: val('in-pname') };
   if (g('in-prname')) return prodForm();
+  if (g('in-cdname')) return cardForm();
   return null;
 }
 
@@ -184,6 +189,40 @@ document.addEventListener('click', async e => {
       case 'to-admin': e.preventDefault(); await loadStaff(); setMode('admin', true); break;
       case 'to-site': e.preventDefault(); setMode('client', true); break;
       case 'start-booking': startBooking(); break;
+      // cardapio do site (pedido fica so no aparelho)
+      case 'cd-add': PED[D.id] = Math.min(20, (PED[D.id] || 0) + 1); pedSave(); if (LAYER) renderLayer(); else { render(true); toast('Adicionado ao seu pedido.', 'plus'); } break;
+      case 'cd-dec': PED[D.id] = Math.max(0, (PED[D.id] || 0) - 1); if (!PED[D.id]) delete PED[D.id]; pedSave(); render(true); renderLayer(); break;
+      case 'cd-clear': PED = {}; pedSave(); closeLayer(); render(true); break;
+      case 'cd-open': openLayer({ kind: 'pedido' }); break;
+      case 'cd-retry': CARD_ERR = null; render(true); break;
+      // cardapio na gestao
+      case 'card-new': openLayer({ kind: 'card-edit', id: null }); break;
+      case 'card-edit': openLayer({ kind: 'card-edit', id: D.id }); break;
+      case 'card-save': {
+        const v = cardForm();
+        const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
+        try {
+          const body = { name: v.name, cat: v.cat, price: Number(v.price) || 0, visible: v.visible };
+          if (D.id) await API.put(`/gestao/cardapio/${D.id}`, body, 'staff');
+          else { const it = await API.post('/gestao/cardapio', body, 'staff'); if (pend.file) await API.upload(PHOTO_PATH.card(it.id), pend.file, 'staff'); }
+          closeLayer(); invalidate('cardapio'); CARD = null; render(true); toast(`${v.name} salvo no cardápio.`);
+        } catch (err) { openLayer({ kind: 'card-edit', id: D.id || null, v, err: err.message, ...pend }); }
+        break;
+      }
+      case 'card-del':
+        try { await API.del(`/gestao/cardapio/${D.id}`, 'staff'); closeLayer(); invalidate('cardapio'); CARD = null; render(true); toast('Item apagado do cardápio.'); }
+        catch (err) { LAYER.err = err.message; LAYER.confirmDel = false; renderLayer(); }
+        break;
+      case 'card-move':
+        try { CACHE.cardapio = { data: await API.post(`/gestao/cardapio/${D.id}/mover`, { dir: D.dir }, 'staff'), at: Date.now() }; CARD = null; render(true); }
+        catch (err) { toast(err.message, 'alert'); }
+        break;
+      case 'card-vis': {
+        const it = CACHE.cardapio && CACHE.cardapio.data.items.find(x => x.id === D.id); if (!it) break;
+        try { await API.put(`/gestao/cardapio/${D.id}`, { visible: !it.visible }, 'staff'); it.visible = !it.visible; CARD = null; render(true); toast(it.visible ? `${it.name} voltou ao cardápio do site.` : `${it.name} foi escondido do site.`); }
+        catch (err) { toast(err.message, 'alert'); }
+        break;
+      }
       case 'vit-sub': VIT_SUB = D.sub; render(true); break;
       case 'scroll-exp': document.getElementById('experiencia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
       case 'cat': UI.cat = D.cat; go('servicos'); break;
@@ -518,7 +557,8 @@ let catalogAt = Date.now();
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden || LAYER || Date.now() - catalogAt < 30000) return;
   catalogAt = Date.now();
-  await Promise.all([loadCatalog(), loadVitrine()]);
+  if (CARD) CARD = null;
+  await Promise.all([loadCatalog(), loadVitrine(), UI.screen === 'cardapio' ? loadCardapio() : null]);
   UI.draft.serviceIds = UI.draft.serviceIds.filter(i => svc(i));
   if (!LAYER) render(true, true);
 });
@@ -570,7 +610,7 @@ document.addEventListener('focusout', e => {
   const k = t.id.slice(3), errs = validate(UI.draft), fld = t.closest('.fld');
   if (errs[k] && t.value) { if (!fld.classList.contains('err')) { fld.classList.add('err'); fld.insertAdjacentHTML('beforeend', `<div class="msg">${ic('alert')}${errs[k]}</div>`); } }
 });
-const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]' };
+const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]' };
 document.addEventListener('submit', e => {
   e.preventDefault();
   const sel = SUBMIT[e.target.id];

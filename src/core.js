@@ -75,6 +75,12 @@ async function loadCatalog() {
 // vitrine do inicio: acessorios da loja do Doutor (Kauan Cell) e produtos do estoque da barbearia.
 // Carrega depois do catalogo e nao trava o site: se falhar, o inicio fica sem a vitrine.
 let VIT = null;
+// cardapio de bebidas: carrega ao abrir a tela Cardapio
+let CARD = null, CARD_ERR = null, CARD_P = null;
+function loadCardapio() {
+  if (!CARD_P) CARD_P = API.get('/publico/cardapio').then(d => { CARD = d; CARD_ERR = null; }, e => { CARD_ERR = e.message; }).finally(() => { CARD_P = null; VER++; });
+  return CARD_P;
+}
 async function loadVitrine() {
   try { VIT = await API.get('/publico/vitrine'); VER++; } catch (e) { /* segue sem vitrine */ }
 }

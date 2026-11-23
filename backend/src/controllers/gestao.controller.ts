@@ -5,6 +5,7 @@ import * as clientes from '../services/clientes.service';
 import * as catalogo from '../services/catalogo.service';
 import * as configuracao from '../services/configuracao.service';
 import * as mercadoPago from '../services/mercado-pago.service';
+import * as cardapioSvc from '../services/cardapio.service';
 import * as estoque from '../services/estoque.service';
 import { AuthRequest } from '../middleware/auth';
 
@@ -60,3 +61,12 @@ export const statusMercadoPago = h(() => mercadoPago.statusConexao());
 export const conectarMercadoPago = h(async () => mercadoPago.iniciarConexao());
 export const desconectarMercadoPago = h(() => mercadoPago.desconectar());
 export const cobrancaMercadoPago = h((req) => mercadoPago.definirCobrarOnline(req.body));
+
+// cardapio de bebidas
+export const cardapio = h(() => cardapioSvc.cardapioGestao());
+export const criarItemCardapio = h((req) => cardapioSvc.criarItem(req.body), 201);
+export const atualizarItemCardapio = h((req) => cardapioSvc.atualizarItem(req.params.id, req.body));
+export const removerItemCardapio = h((req) => cardapioSvc.removerItem(req.params.id));
+export const moverItemCardapio = h((req) => cardapioSvc.moverItem(req.params.id, req.body));
+export const enviarFotoCardapio = h((req) => cardapioSvc.enviarFoto(req.params.id, req.file));
+export const removerFotoCardapio = h((req) => cardapioSvc.tirarFoto(req.params.id));

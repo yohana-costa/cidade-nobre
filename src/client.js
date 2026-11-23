@@ -18,10 +18,11 @@ const NAV = [
   { id: 'home', label: 'Início', icon: 'home', on: 'homeF' },
   { id: 'servicos', label: 'Serviços', icon: 'scissors' },
   { id: 'agendar', label: 'Agendar', icon: 'calendarDot', on: 'calendar' },
+  { id: 'cardapio', label: 'Cardápio', icon: 'glass' },
   { id: 'clube', label: 'Clube', icon: 'crown', on: 'crownF' },
   { id: 'perfil', label: 'Perfil', icon: 'user' },
 ];
-const NAV_OF = { home: 'home', servicos: 'servicos', agendar: 'agendar', dados: 'agendar', confirmado: 'agendar', clube: 'clube', perfil: 'perfil', entrar: 'perfil' };
+const NAV_OF = { home: 'home', servicos: 'servicos', agendar: 'agendar', dados: 'agendar', confirmado: 'agendar', cardapio: 'cardapio', clube: 'clube', perfil: 'perfil', entrar: 'perfil' };
 
 function bottomNav(screen) {
   const cur = NAV_OF[screen];
@@ -118,6 +119,59 @@ function vitBars() {
     i.style.width = (w * 100) + '%';
     i.style.left = ((t.scrollLeft / over) * (1 - w) * 100) + '%';
   });
+}
+
+/* ---------- Cardápio (bebidas) ---------- */
+// O pedido fica só neste aparelho: o cliente mostra a lista ao barbeiro ou na recepção.
+const CD_ICON = { drinks: 'glass', cervejas: 'beer', whisky: 'whisky', sem_alcool: 'leaf' };
+const cdPrice = v => Number.isInteger(v) ? 'R$' + v : money(v);
+const PED_KEY = 'cn-pedido-v1';
+let PED = (() => { try { return JSON.parse(sessionStorage.getItem(PED_KEY)) || {}; } catch (e) { return {}; } })();
+function pedSave() { try { sessionStorage.setItem(PED_KEY, JSON.stringify(PED)); } catch (e) { /* sem armazenamento */ } }
+function pedItems() {
+  if (!CARD) return [];
+  return Object.entries(PED).map(([id, q]) => ({ it: CARD.items.find(i => i.id === id), q })).filter(x => x.it && x.q > 0);
+}
+function cdBtn(i) {
+  const q = PED[i.id] || 0;
+  return `<button class="cd-btn ${q ? 'on' : ''}" data-act="cd-add" data-id="${i.id}" aria-label="Pedir ${esc(i.name)}">${q ? `${q} no pedido` : 'Pedir'} ${ic('plus')}</button>`;
+}
+const cdPh = (i) => `<span class="cd-ph">${i.photo ? `<img src="${esc(i.photo)}" alt="" loading="lazy">` : ic(CD_ICON[i.cat] || 'glass')}</span>`;
+function cdSection(c, items) {
+  if (!items.length) return '';
+  let body;
+  if (c.id === 'sem_alcool') {
+    body = `<div class="cd-list">${items.map(i => `<div class="cd-row">${cdPh(i)}<span class="cd-nm">${esc(i.name)}</span><span class="cd-pr tnum">${cdPrice(i.price)}</span>${cdBtn(i)}</div>`).join('')}</div>`;
+  } else {
+    body = `<div class="cd-grid ${c.id === 'drinks' ? 'g2' : 'g4'}">${items.map(i => `<div class="cd-card">${cdPh(i)}<span class="cd-tx"><span class="cd-nm">${esc(i.name)}</span><span class="cd-pr tnum">${cdPrice(i.price)}</span>${cdBtn(i)}</span></div>`).join('')}</div>`;
+  }
+  return `<section class="cd-sec" aria-labelledby="cd-${c.id}"><h2 class="cd-h" id="cd-${c.id}">${ic(CD_ICON[c.id] || 'glass')}<span>${esc(c.name)}</span></h2>${body}</section>`;
+}
+function vCardapio() {
+  if (!CARD && !CARD_ERR) loadCardapio().then(() => { if (UI.screen === 'cardapio' && !LAYER) render(true, true); });
+  const list = pedItems();
+  const n = list.reduce((s, x) => s + x.q, 0), tot = list.reduce((s, x) => s + x.q * x.it.price, 0);
+  return `<div class="scr cdp">
+  <div class="home-bar"><button class="menu-btn" data-act="menu" aria-label="Abrir menu">${ic('menu')}</button></div>
+  <section class="cd-hero">
+    <div class="cd-hero-bg"><img src="${A.hero_home}" alt="" width="759" height="804"></div>
+    <div class="cd-hero-in"><img class="cd-crest" src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"><h1>Cardápio Premium</h1><p>Drinks e bebidas para pedir durante sua experiência.</p></div>
+  </section>
+  <div class="d-page wrap cd-body">
+    ${!CARD ? (CARD_ERR ? `<div class="empty">Não foi possível carregar o cardápio. <button class="link" data-act="cd-retry">Tentar de novo</button></div>` : '<div class="empty">Carregando o cardápio…</div>')
+      : CARD.items.length ? CARD.categories.map(c => cdSection(c, CARD.items.filter(i => i.cat === c.id))).join('') : '<div class="empty">O cardápio está sendo preparado.</div>'}
+  </div>
+  ${n ? `<div class="cd-bar"><button class="cd-bar-in" data-act="cd-open"><span class="cd-bar-n">${n}</span><span>Meu pedido</span><b class="tnum">${money(tot)}</b><span class="cd-bar-go">Ver ${ic('right')}</span></button></div>` : ''}
+  </div>`;
+}
+function vPedido() {
+  const list = pedItems();
+  const tot = list.reduce((s, x) => s + x.q * x.it.price, 0);
+  if (!list.length) return sheet('Meu pedido', '', '<div class="empty">Seu pedido está vazio. Toque em Pedir no cardápio.</div>', '<button class="btn btn-gold" data-act="close">Voltar ao cardápio</button>');
+  return sheet('Meu pedido', 'Mostre esta lista ao seu barbeiro ou na recepção', `<div class="ped-list">${list.map(({ it, q }) => `<div class="ped-row">${cdPh(it)}<span class="ped-nm"><b>${esc(it.name)}</b><small>${money(it.price)} cada</small></span><span class="ped-q"><button data-act="cd-dec" data-id="${it.id}" aria-label="Tirar um">${ic('minus')}</button><b class="tnum">${q}</b><button data-act="cd-add" data-id="${it.id}" aria-label="Colocar mais um">${ic('plus')}</button></span><span class="ped-v tnum">${money(q * it.price)}</span></div>`).join('')}
+    <div class="ped-tot"><span>Total</span><b class="tnum">${money(tot)}</b></div></div>
+    <p class="note">O pagamento das bebidas é feito na barbearia.</p>`,
+  `<button class="btn btn-ghost" data-act="cd-clear">Limpar pedido</button><button class="btn btn-gold" data-act="close">Continuar</button>`);
 }
 
 /* ---------- Serviços ---------- */
@@ -512,7 +566,7 @@ function vMenu() {
 
 function vClient() {
   const s = UI.screen;
-  const map = { home: vHome, servicos: vServicos, agendar: vAgendar, dados: vDados, confirmado: vConfirmado, clube: vClube, perfil: vPerfil, entrar: () => vEntrar('perfil') };
+  const map = { home: vHome, servicos: vServicos, agendar: vAgendar, dados: vDados, confirmado: vConfirmado, cardapio: vCardapio, clube: vClube, perfil: vPerfil, entrar: () => vEntrar('perfil') };
   const body = (map[s] || vHome)();
   return `<div class="cx">${topBar(s)}${body}${bottomNav(s)}</div>`;
 }
