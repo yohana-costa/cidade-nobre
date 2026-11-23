@@ -89,23 +89,38 @@ const vitCard = (p, go) => `<div class="vit-card">
   <div class="vit-img">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : `<span class="vit-ph">${ic('box')}</span>`}</div>
   <div class="vit-info"><span class="vit-name">${esc(p.name)}</span><span class="vit-foot">${p.price > 0 ? `<span class="vit-price tnum">${money(p.price)}</span>` : ''}${go ? `<span class="vit-go">${ic('arrow')}</span>` : ''}</span></div>
 </div>`;
+// Categorias que aparecem mesmo antes de ter produto (modelo aprovado pela barbearia).
+// Produto cadastrado com outra categoria entra junto. Tocar no card mostra os produtos dela.
+const CEL_CATS = [['Capinhas', 'Capinhas', 'cel_capinhas'], ['Carregadores', 'Carregadores', 'cel_carregadores'], ['Portáteis', 'Carregadores portáteis', 'cel_portateis'], ['Caixas de som', 'Caixas de som', null]];
+const normCat = x => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function celCats(c) {
+  const list = CEL_CATS.map(([id, title, img]) => ({ id, title, img: A[img] || null }));
+  for (const x of c.cats) if (!list.some(k => normCat(k.id) === normCat(x))) list.push({ id: x, title: x, img: null });
+  // foto do card: a da categoria pronta ou a do primeiro produto com foto
+  return list.map(k => ({ ...k, items: c.items.filter(i => normCat(i.cat) === normCat(k.id)) })).map(k => ({ ...k, img: k.img || (k.items.find(i => i.photo) || {}).photo || null }));
+}
 function vVitrine() {
-  if (!VIT) return '';
-  let out = '';
-  const c = VIT.celular;
-  if (c && c.items.length) {
-    const sub = c.cats.includes(VIT_SUB) ? VIT_SUB : 'all';
-    const list = sub === 'all' ? c.items : c.items.filter(i => i.cat === sub);
-    out += `<section class="vit vit-cel wrap" aria-labelledby="vit-cel-t">
+  const c = (VIT && VIT.celular) || { cats: [], items: [] };
+  const cats = celCats(c);
+  const sub = VIT_SUB === 'tudo' || cats.some(k => k.id === VIT_SUB) ? VIT_SUB : 'all';
+  let track;
+  if (sub === 'all') {
+    track = cats.map(k => `<button class="vit-card vit-cat" data-act="vit-sub" data-sub="${esc(k.id)}">
+      <div class="vit-img">${k.img ? `<img src="${esc(k.img)}" alt="" loading="lazy">` : `<span class="vit-ph">${ic(normCat(k.id).includes('som') ? 'speaker' : 'box')}</span>`}</div>
+      <div class="vit-info"><span class="vit-foot"><span class="vit-name">${esc(k.title)}</span><span class="vit-go">${ic('arrow')}</span></span></div>
+    </button>`).join('');
+  } else {
+    const list = sub === 'tudo' ? c.items : (cats.find(k => k.id === sub) || { items: [] }).items;
+    track = list.length ? list.map(p => vitCard(p, false)).join('') : `<div class="vit-soon">${ic('box')}<b>Em breve na barbearia</b><small>Pergunte para a equipe quais ${sub === 'tudo' ? 'acessórios' : esc(sub.toLowerCase())} já chegaram.</small></div>`;
+  }
+  return `<section class="vit vit-cel wrap" aria-labelledby="vit-cel-t">
       <div class="vit-head">
         <span class="vit-logo"><img src="${A.kauan}" alt="Kauan Cell" width="190" height="170" loading="lazy"></span>
-        <div class="vit-tt"><span class="vit-all">Peça na barbearia</span><h2 id="vit-cel-t">Acessórios para celular</h2></div>
+        <div class="vit-tt"><button class="vit-all" data-act="vit-sub" data-sub="tudo">Ver catálogo ${ic('arrow')}</button><h2 id="vit-cel-t">Acessórios para celular</h2></div>
       </div>
-      ${c.cats.length > 1 ? `<div class="vit-chips" role="group" aria-label="Filtrar acessórios">${[['all', 'Todos'], ...c.cats.map(x => [x, x])].map(([id, l]) => `<button class="vit-chip ${id === sub ? 'on' : ''}" data-act="vit-sub" data-sub="${esc(id)}" aria-pressed="${id === sub}">${esc(l)}</button>`).join('')}</div>` : '<div class="vit-gap"></div>'}
-      ${vitTrack(list.map(p => vitCard(p, false)).join(''))}
+      <div class="vit-chips" role="group" aria-label="Filtrar acessórios">${[['all', 'Todos'], ...cats.map(k => [k.id, k.id])].map(([id, l]) => `<button class="vit-chip ${id === sub || (id === 'all' && sub === 'tudo') ? 'on' : ''}" data-act="vit-sub" data-sub="${esc(id)}" aria-pressed="${id === sub}">${esc(l)}</button>`).join('')}</div>
+      ${vitTrack(track)}
     </section>`;
-  }
-  return out;
 }
 // barrinha de progresso embaixo do carrossel
 function vitBars() {

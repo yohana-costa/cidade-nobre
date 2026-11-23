@@ -1006,3 +1006,17 @@ button.sim::before{display:none}
 .bo-f{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
 .bo-tot{font-family:var(--serif);font-size:17px;color:var(--cream)}
 .bo-acts{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* vitrine: cards de categoria (modelo do início) */
+button.vit-all{background:none;border:0;cursor:pointer}
+.vit-cat{flex-basis:calc(186 * var(--u));text-align:left;padding:0;cursor:pointer}
+.vit-cat .vit-img{aspect-ratio:364/292;background:#0f0e0c}
+.vit-cat .vit-img img{object-fit:cover}
+.vit-cat .vit-ph .ic{width:48px;height:48px}
+.vit-cat .vit-info{padding:12px 12px 12px 14px}
+.vit-cat .vit-foot{margin:0}
+.vit-cat .vit-name{font-family:var(--serif);font-size:calc(18 * var(--u));min-height:0;-webkit-line-clamp:2;color:var(--cream)}
+.vit-soon{flex:1;min-height:calc(170 * var(--u));border:1px dashed rgba(242,194,48,.4);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:18px;color:var(--muted)}
+.vit-soon .ic{width:30px;height:30px;color:var(--kc)}
+.vit-soon b{color:var(--cream);font-family:var(--serif);font-size:17px}
+.vit-soon small{font-size:13px}
+@media (min-width:960px){.vit-cat{flex-basis:260px}.vit-cat .vit-name{font-size:20px}}
