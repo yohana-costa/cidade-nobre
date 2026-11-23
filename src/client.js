@@ -79,7 +79,7 @@ function vHome() {
   </div></div>`;
 }
 
-/* ---------- Vitrine: estoque da barbearia (acessórios para celular e produtos da casa) ---------- */
+/* ---------- Vitrine: acessórios para celular do estoque da barbearia ---------- */
 let VIT_SUB = 'all';
 function vitTrack(cards) {
   return `<div class="vit-track">${cards}</div><div class="vit-bar" aria-hidden="true"><i></i></div>`;
@@ -102,14 +102,6 @@ function vVitrine() {
       </div>
       ${c.cats.length > 1 ? `<div class="vit-chips" role="group" aria-label="Filtrar acessórios">${[['all', 'Todos'], ...c.cats.map(x => [x, x])].map(([id, l]) => `<button class="vit-chip ${id === sub ? 'on' : ''}" data-act="vit-sub" data-sub="${esc(id)}" aria-pressed="${id === sub}">${esc(l)}</button>`).join('')}</div>` : '<div class="vit-gap"></div>'}
       ${vitTrack(list.map(p => vitCard(p, false)).join(''))}
-    </section>`;
-  }
-  const b = VIT.barbearia || [];
-  if (b.length) {
-    out += `<section class="vit vit-casa wrap" aria-labelledby="vit-casa-t">
-      <div class="lined"><h2 id="vit-casa-t">Produtos da casa</h2></div>
-      <p class="vit-note">Peça ao seu barbeiro no dia do atendimento.</p>
-      ${vitTrack(b.map(p => vitCard(p, false)).join(''))}
     </section>`;
   }
   return out;
