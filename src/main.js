@@ -692,6 +692,10 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   let ref = null;
   if (m) { ref = m[1].toUpperCase(); UI.refCode = ref; UI.screen = 'home'; history.replaceState(null, '', '/'); }
   UI.mode = /^\/gestao/.test(location.pathname) ? 'admin' : 'client';
+  // QR Code da mesa: /cardapio (ou ?cardapio) abre direto no cardápio
+  if (/^\/cardapio\/?$/.test(location.pathname) || /[?&]cardapio(=|&|$)/.test(location.search)) {
+    UI.mode = 'client'; UI.screen = 'cardapio'; LAYER = null; history.replaceState(null, '', '/');
+  }
   // volta do Mercado Pago (/?pagamento=<id>) e volta do "Conectar Mercado Pago" (/gestao?mp=ok|erro)
   const pg = location.search.match(/[?&]pagamento=([0-9a-f-]{36})/i);
   const mpVolta = location.search.match(/[?&]mp=(ok|erro)/);
