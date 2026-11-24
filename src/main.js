@@ -488,9 +488,16 @@ document.addEventListener('click', async e => {
       case 'prod-save': {
         const v = prodForm();
         const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
+        const qty = Number(v.qty);
+        if (String(v.qty).trim() === '' || !Number.isInteger(qty) || qty < 0 || qty > 99999) { openLayer({ kind: 'prod-edit', id: D.id || null, v, err: 'Informe a quantidade em estoque (número inteiro, 0 ou mais).', ...pend }); break; }
         try {
           const body = { name: v.name, desc: v.desc, price: Number(v.price) || 0, cost: Number(v.cost) || 0, min: Math.round(Number(v.min) || 0), shelf: v.shelf, cat: v.cat };
-          if (D.id) await API.put(`/gestao/produtos/${D.id}`, body, 'staff');
+          if (D.id) {
+            await API.put(`/gestao/produtos/${D.id}`, body, 'staff');
+            // quantidade editada aqui vira um ajuste de contagem, para o histórico de movimentos continuar certo
+            const atual = CACHE.estoque && CACHE.estoque.data && CACHE.estoque.data.products.find(x => x.id === D.id);
+            if (!atual || atual.qty !== qty) await API.post(`/gestao/produtos/${D.id}/movimentos`, { type: 'ajuste', count: qty, reason: 'Ajustado na edição do produto' }, 'staff');
+          }
           else { const p = await API.post('/gestao/produtos', { ...body, qty: Math.round(Number(v.qty) || 0) }, 'staff'); if (pend.file) await API.upload(PHOTO_PATH.prod(p.id), pend.file, 'staff'); }
           closeLayer(); invalidate('estoque', 'contadores'); render(true); toast(`${v.name} salvo.`);
         } catch (err) { openLayer({ kind: 'prod-edit', id: D.id || null, v, err: err.message, ...pend }); }
