@@ -6,6 +6,7 @@ const ICONS = {
   calendarDot: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M12 14.6v.1" stroke-width="2.4"/>',
   crown: '<path d="M3.5 8.2 8 12.2l4-6.4 4 6.4 4.5-4-1.9 9.3H5.4z"/><path d="M5.4 20.3h13.2"/>',
   crownF: '<path class="f" d="M3 7.6 7.9 11.7 12 5l4.1 6.7L21 7.6l-2.1 10.2H5.1zM5 19.1h14v1.7H5z"/>',
+  chair: '<path d="M7 4h8a1.5 1.5 0 0 1 1.5 1.5V11H5.5V5.5A1.5 1.5 0 0 1 7 4z"/><path d="M4 11h14v3H4zM18.5 12.5H21M7 14v3h8v-3M11 17v3M7.5 20.5h7"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5"/>',
   userF: '<circle class="f" cx="12" cy="7.8" r="4.2"/><path class="f" d="M3.8 20.4c.9-4.3 4.2-6.6 8.2-6.6s7.3 2.3 8.2 6.6z"/>',
   usersF: '<circle class="f" cx="12" cy="7.6" r="3.2"/><circle class="f" cx="5.6" cy="9.3" r="2.4"/><circle class="f" cx="18.4" cy="9.3" r="2.4"/><path class="f" d="M6.6 18.6c.5-3.4 2.7-5.4 5.4-5.4s4.9 2 5.4 5.4z"/><path class="f" d="M1.5 17.7c.3-2.6 1.8-4.1 4-4.1.8 0 1.5.2 2.1.6-1 1-1.7 2.2-2 3.5zM22.5 17.7c-.3-2.6-1.8-4.1-4-4.1-.8 0-1.5.2-2.1.6 1 1 1.7 2.2 2 3.5z"/>',

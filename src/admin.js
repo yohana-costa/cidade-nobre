@@ -406,24 +406,35 @@ function vProdEdit(id, L) {
 const BST = { novo: ['Novo', 'st-confirmado'], preparando: ['Preparando', 'st-agendado'], entregue: ['Entregue', 'st-concluido'], cancelado: ['Cancelado', 'st-cancelado'] };
 const ago = iso => { const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000)); return m < 1 ? 'agora' : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}`; };
 const hhmm = iso => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+// Pedidos do bar no modelo aprovado: faixa vinho com número, hora e situação; itens com preço; total.
+const boNum = n => '#' + String(n).padStart(3, '0');
 function barOrder(o) {
   const open = o.status === 'novo' || o.status === 'preparando';
-  return `<div class="bo st-${o.status}">
-    <div class="bo-h"><b>Nº ${o.number}</b><span class="pill ${BST[o.status][1]}">${BST[o.status][0]}</span><span class="bo-t">${hhmm(o.at)} · ${ago(o.at)}</span></div>
-    <div class="bo-who">${ic('user')}<b>${esc(o.name)}</b>${o.pro ? `<span>com ${esc(o.pro)}</span>` : ''}</div>
-    <ul class="bo-items">${o.items.map(i => `<li><b>${i.qty}×</b> ${esc(i.name)}</li>`).join('')}</ul>
-    ${o.note ? `<div class="bo-note">${ic('msg')}${esc(o.note)}</div>` : ''}
-    <div class="bo-f"><span class="bo-tot tnum">${money(o.total)}</span>${open ? `<span class="bo-acts">${o.status === 'novo' ? `<button class="btn btn-line btn-sm" data-act="bar-st" data-id="${o.id}" data-st="preparando">Preparar</button>` : ''}<button class="btn btn-gold btn-sm" data-act="bar-st" data-id="${o.id}" data-st="entregue">${ic('check')} Entregue</button><button class="link" data-act="bar-st" data-id="${o.id}" data-st="cancelado">Cancelar</button></span>` : ''}</div>
-  </div>`;
+  return `<article class="bo st-${o.status}">
+    <div class="bo-h"><b>Pedido ${boNum(o.number)}</b><span class="bo-sep"></span><span class="bo-t tnum">${hhmm(o.at)}</span><span class="bo-st ${o.status}">${BST[o.status][0]}</span></div>
+    <div class="bo-who"><b>${esc(o.name)}</b>${o.pro ? `<span class="bo-chair">${ic('chair')}${esc(o.pro)}</span>` : ''}</div>
+    <div class="bo-b">
+      <ul class="bo-items">${o.items.map(i => `<li><span>${i.qty}× ${esc(i.name)}</span><span class="tnum">${money(i.price * i.qty)}</span></li>`).join('')}</ul>
+      ${o.note ? `<div class="bo-note">${ic('msg')}${esc(o.note)}</div>` : ''}
+      <div class="bo-tot"><span>${o.status === 'entregue' ? 'Total' : 'Total a pagar'}</span><b class="tnum">${money(o.total)}</b></div>
+      ${open ? `<button class="bo-main" data-act="bar-st" data-id="${o.id}" data-st="entregue">Marcar como entregue</button>
+      <div class="bo-more">${o.status === 'novo' ? `<button class="link" data-act="bar-st" data-id="${o.id}" data-st="preparando">Começar a preparar</button>` : `<span class="note">${ago(o.at)}</span>`}<button class="link" data-act="bar-st" data-id="${o.id}" data-st="cancelado">Cancelar pedido</button></div>` : ''}
+    </div>
+  </article>`;
 }
 function vBarOrders() {
   const { d: P, wait } = load('pedidos-bar', '/gestao/pedidos-bar');
   if (!P) return wait;
-  const open = P.orders.filter(o => o.status === 'novo' || o.status === 'preparando').sort((a, b) => a.at.localeCompare(b.at));
-  const done = P.orders.filter(o => o.status === 'entregue' || o.status === 'cancelado');
-  return `<p class="note" style="margin:0 0 12px">Os pedidos chegam aqui sozinhos, com aviso e som. Pagamento na barbearia.</p>
-    <section class="panel"><div class="panel-h"><h2>Para atender</h2><span class="note">${open.length}</span></div><div class="panel-b">${open.length ? `<div class="bo-grid">${open.map(barOrder).join('')}</div>` : '<div class="empty">Nenhum pedido esperando. Quando um cliente pedir pelo site, ele aparece aqui.</div>'}</div></section>
-    ${done.length ? `<section class="panel" style="margin-top:14px"><div class="panel-h"><h2>Atendidos nas últimas 12 horas</h2><span class="note">${done.length}</span></div><div class="panel-b"><div class="bo-grid">${done.map(barOrder).join('')}</div></div></section>` : ''}`;
+  const open = P.orders.filter(o => o.status === 'novo' || o.status === 'preparando');
+  const done = P.orders.filter(o => o.status === 'entregue' || o.status === 'cancelado').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const tab = UI.boTab === 'done' ? 'done' : 'open';
+  const list = tab === 'open' ? open : done;
+  return `<div class="bo-wrap">
+    <div class="bo-tabs" role="tablist"><button role="tab" class="${tab === 'open' ? 'on' : ''}" aria-selected="${tab === 'open'}" data-act="botab" data-k="open">Em aberto · ${open.length}</button><button role="tab" class="${tab === 'done' ? 'on' : ''}" aria-selected="${tab === 'done'}" data-act="botab" data-k="done">Entregues${done.length ? ' · ' + done.length : ''}</button></div>
+    ${list.length ? `<div class="bo-grid">${list.map(barOrder).join('')}</div>`
+      : `<div class="empty">${tab === 'open' ? 'Nenhum pedido em aberto. Quando um cliente pedir pelo site, ele aparece aqui com aviso e som.' : 'Nenhum pedido entregue nas últimas 12 horas.'}</div>`}
+    <p class="note" style="margin-top:12px">Pagamento na barbearia. Entregues e cancelados ficam aqui por 12 horas.</p>
+  </div>`;
 }
 function vCardAdmin() {
   const tab = UI.cdTab || 'pedidos';

@@ -221,6 +221,7 @@ document.addEventListener('click', async e => {
         break;
       }
       case 'cdtab': UI.cdTab = D.k; render(true); break;
+      case 'botab': UI.boTab = D.k; render(true); break;
       case 'cd-open': openLayer({ kind: 'pedido' }); break;
       case 'cd-retry': CARD_ERR = null; render(true); break;
       // cardapio na gestao

@@ -991,23 +991,40 @@ button.sim::before{display:none}
 .bar-steps li.cur{color:var(--cream);font-weight:600}
 .ped-row.ped-sent{grid-template-columns:minmax(0,1fr) auto}
 /* pedido do bar: gestão */
-.bo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.bo{border:1px solid #2a2824;border-radius:12px;background:#151412;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-.bo.st-novo{border-color:var(--gold);box-shadow:0 0 0 1px rgba(211,168,101,.25)}
-.bo.st-entregue,.bo.st-cancelado{opacity:.7}
-.bo-h{display:flex;align-items:center;gap:8px}
-.bo-h b{font-family:var(--serif);font-size:17px;color:var(--cream)}
-.bo-t{margin-left:auto;color:var(--muted);font-size:12px}
-.bo-who{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--text)}
-.bo-who .ic{width:15px;height:15px;color:var(--gold)}
-.bo-who span{color:var(--muted);font-size:13px}
-.bo-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:14px;color:var(--cream)}
-.bo-items b{color:var(--gold);font-weight:600;margin-right:2px}
+.bo-wrap{max-width:1180px}
+.bo-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid #34312c;border-radius:12px;background:#121110;margin-bottom:16px;max-width:520px}
+.bo-tabs button{min-height:44px;border-radius:9px;color:var(--cream);font-size:15px;font-weight:600;background:transparent}
+.bo-tabs button.on{background:linear-gradient(180deg,#e3bd7a,#c99a52);color:#17130d;box-shadow:0 2px 10px rgba(211,168,101,.25)}
+.bo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
+.bo{position:relative;border:1px solid #3a2a2c;border-radius:14px;background:#151313;overflow:hidden}
+.bo.st-novo{border-color:#5a3a34}
+.bo.st-novo::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,#e3bd7a,#c99a52);z-index:1}
+.bo.st-entregue,.bo.st-cancelado{opacity:.78}
+.bo-h{display:flex;align-items:center;gap:12px;padding:12px 14px 8px;background:linear-gradient(90deg,#4a1219,#3a0f15 60%,#2a0d12)}
+.bo-h b{font-size:18px;font-weight:700;color:var(--cream);letter-spacing:.01em}
+.bo-sep{width:1px;height:20px;background:rgba(239,232,220,.45)}
+.bo-t{color:#e9e1d4;font-size:15px}
+.bo-st{margin-left:auto;font-size:13px;font-weight:600;padding:4px 11px;border-radius:7px;background:#2d6b34;color:#f1f7ef}
+.bo-st.novo{background:#c99a52;color:#17130d}
+.bo-st.preparando{background:#2d6b34}
+.bo-st.entregue{background:#3a3833;color:#d8d2c6}
+.bo-st.cancelado{background:#5b2626;color:#f3dada}
+.bo-who{display:flex;align-items:center;gap:10px;padding:8px 14px 12px;background:linear-gradient(90deg,#3e0f15,#2e0c11 70%,#220a0e)}
+.bo-who b{font-size:18px;font-weight:700;color:var(--cream);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bo-chair{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none;font-size:13.5px;font-weight:600;color:var(--cream);background:rgba(160,40,55,.45);border-radius:8px;padding:5px 10px}
+.bo-chair .ic{width:17px;height:17px}
+.bo-b{padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px}
+.bo-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:15px;color:var(--cream)}
+.bo-items li{display:flex;justify-content:space-between;gap:12px}
+.bo-items li span:last-child{color:#e9e1d4;flex:none}
 .bo-note{display:flex;gap:6px;align-items:flex-start;font-size:13px;color:#e7dfd2;background:rgba(211,168,101,.08);border-radius:8px;padding:6px 8px}
 .bo-note .ic{width:14px;height:14px;color:var(--gold);flex:none;margin-top:2px}
-.bo-f{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
-.bo-tot{font-family:var(--serif);font-size:17px;color:var(--cream)}
-.bo-acts{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bo-tot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:2px dotted rgba(239,232,220,.35);padding-top:10px;color:var(--cream);font-size:15px}
+.bo-tot b{font-size:22px;font-weight:700}
+.bo-main{width:100%;min-height:46px;border:1.5px solid var(--gold);border-radius:10px;color:var(--gold);font-size:16px;font-weight:700;background:transparent}
+.bo-main:hover{background:rgba(211,168,101,.1)}
+.bo-more{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.bo-more .link:last-child{color:var(--muted)}
 /* vitrine: cards de categoria (modelo do início) */
 button.vit-all{background:none;border:0;cursor:pointer}
 .vit-cat{flex-basis:calc(186 * var(--u));text-align:left;padding:0;cursor:pointer}
