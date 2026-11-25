@@ -251,7 +251,17 @@ document.addEventListener('click', async e => {
         catch (err) { toast(err.message, 'alert'); }
         break;
       }
-      case 'vit-sub': VIT_SUB = D.sub; render(true); break;
+      case 'vit-sub': {
+        // esteira de chips: guarda a rolagem e deixa o chip escolhido visivel depois de redesenhar
+        const x = document.querySelector('.vit-chips')?.scrollLeft || 0;
+        VIT_SUB = D.sub; render(true);
+        const row = document.querySelector('.vit-chips'), on = row && row.querySelector('.vit-chip.on');
+        if (row) {
+          row.scrollLeft = x;
+          if (on) { const r = row.getBoundingClientRect(), c = on.getBoundingClientRect(); if (c.left < r.left || c.right > r.right) row.scrollBy({ left: c.left - r.left - 16, behavior: 'smooth' }); }
+        }
+        break;
+      }
       case 'scroll-exp': document.getElementById('experiencia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
       case 'cat': UI.cat = D.cat; go('servicos'); break;
       case 'cat-filter': UI.cat = D.cat; saveUI(); render(true); break;
