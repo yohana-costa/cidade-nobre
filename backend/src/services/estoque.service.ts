@@ -72,7 +72,7 @@ const produtoSchema = z.object({
   price: z.number().min(0, 'Use preço entre R$ 0 e R$ 10.000.').max(10000, 'Use preço entre R$ 0 e R$ 10.000.'),
   cost: z.number().min(0, 'Use custo entre R$ 0 e R$ 10.000.').max(10000, 'Use custo entre R$ 0 e R$ 10.000.').default(0),
   min: z.number().int().min(0, 'O aviso de estoque baixo vai de 0 a 999.').max(999, 'O aviso de estoque baixo vai de 0 a 999.').default(3),
-  shelf: z.enum(['casa', 'celular']).default('casa'),
+  shelf: z.enum(['casa', 'celular', 'barbearia']).default('casa'),
   cat: z.string().trim().max(40, 'Use uma categoria de até 40 letras.').default(''),
 });
 

@@ -251,6 +251,17 @@ document.addEventListener('click', async e => {
         catch (err) { toast(err.message, 'alert'); }
         break;
       }
+      case 'vit-shelf': VIT_SHELF = D.shelf; VIT_SUB = 'all'; render(true); document.querySelector('.vit-chips')?.scrollTo({ left: 0 }); break;
+      case 'catalogo': CATG_SUB = 'all'; go('catalogo'); window.scrollTo(0, 0); break;
+      case 'catalogo-back': go('home'); requestAnimationFrame(() => document.querySelector('.vit')?.scrollIntoView({ block: 'start' })); break;
+      case 'catg-shelf': VIT_SHELF = D.shelf; VIT_SUB = 'all'; CATG_SUB = 'all'; render(true); break;
+      case 'catg-sub': {
+        const x = document.querySelector('.vit-chips')?.scrollLeft || 0;
+        CATG_SUB = D.sub; render(true);
+        const row = document.querySelector('.vit-chips'); if (row) row.scrollLeft = x;
+        document.querySelector('.catg-top')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        break;
+      }
       case 'vit-sub': {
         // esteira de chips: guarda a rolagem e deixa o chip escolhido visivel depois de redesenhar
         const x = document.querySelector('.vit-chips')?.scrollLeft || 0;

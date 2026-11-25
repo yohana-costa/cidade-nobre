@@ -1022,3 +1022,34 @@ button.vit-all{background:none;border:0;cursor:pointer}
 .vit-soon b{color:var(--cream);font-family:var(--serif);font-size:17px}
 .vit-soon small{font-size:13px}
 @media (min-width:960px){.vit-cat{flex-basis:260px}.vit-cat .vit-name{font-size:20px}}
+
+/* vitrine com duas prateleiras (Kauan Cell / barbearia) e tela de catálogo */
+.vit-barb{--kc:var(--gold)}
+.vit-barb .vit-card{border-color:var(--gold-dim)}
+.vit-barb .vit-chip{border-color:var(--gold-dim)}
+.vit-barb .vit-tt::before{background:linear-gradient(90deg,rgba(211,168,101,.7),rgba(211,168,101,0))}
+.vit-barb .vit-soon{border-color:var(--gold-dim)}
+.vit-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--gold-dim);border-radius:12px;background:#121110;margin-bottom:calc(16 * var(--u))}
+.vit-tab{min-height:42px;border-radius:9px;color:var(--muted);font-size:13.5px;font-weight:600;line-height:1.2;padding:6px 8px;background:transparent;transition:background .2s,color .2s}
+.vit-tab.on{background:var(--kc);color:#14120e}
+.vit-cel .vit-tab:not(.on):hover,.vit-barb .vit-tab:not(.on):hover{color:var(--cream)}
+.catg{padding-bottom:calc(90 * var(--u))}
+.catg .d-page{padding-top:calc(16 * var(--u))}
+.catg-back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13.5px;padding:8px 0;margin-bottom:calc(10 * var(--u))}
+.catg-back .ic{width:16px;height:16px}
+.catg-top{margin-top:0}
+.catg-sub{color:var(--muted);font-size:13px;margin:6px 0 0;order:3}
+.catg-sec{margin-top:calc(22 * var(--u))}
+.catg-sec:first-of-type{margin-top:calc(6 * var(--u))}
+.catg-h{display:flex;align-items:baseline;gap:10px;margin-bottom:calc(10 * var(--u))}
+.catg-h h2{font-family:var(--serif);font-weight:650;font-size:calc(20 * var(--u));color:var(--cream);margin:0}
+.catg-h span{color:var(--muted);font-size:12.5px}
+.catg-h .vit-all{margin-left:auto;align-self:center}
+.catg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(10 * var(--u));margin-top:calc(6 * var(--u))}
+.catg-grid .vit-card{min-width:0}
+@media (min-width:700px){.catg-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:960px){
+  .vit-tabs{max-width:460px}
+  .catg-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .catg .d-page{max-width:1100px}
+}
