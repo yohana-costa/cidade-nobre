@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { falha } from '../lib/erros';
-import { DATA_RE, HORA_RE, addDays, agoraMin, hoje, tmin } from '../lib/datas';
+import { DATA_RE, HORA_RE, addDays, agoraMin, dow, hoje, tmin } from '../lib/datas';
 import { apptInclude, apptView, isOpenDay } from '../lib/base';
 import { Cfg, obterConfiguracao } from './configuracao.service';
 import { gerarCodigoCliente } from './clientes.service';
@@ -15,7 +15,7 @@ interface Ctx {
   cfg: Cfg;
   T: string;
   nowMin: number;
-  pros: { id: string; services: string[] }[];
+  pros: { id: string; services: string[]; off: number[] }[];
   svc: Map<string, { dur: number; price: number; name: string }>;
   appts: { id: string; proId: string; date: string; time: string; dur: number }[]; // so nao cancelados
 }
@@ -29,7 +29,7 @@ async function montarCtx(db: Tx | typeof prisma, de: string, ate: string, cfg?: 
   ]);
   return {
     cfg: c, T: hoje(), nowMin: agoraMin(),
-    pros: pros.map((p) => ({ id: p.id, services: p.servicos.map((s) => s.id) })),
+    pros: pros.map((p) => ({ id: p.id, services: p.servicos.map((s) => s.id), off: p.folgas })),
     svc: new Map(servicos.map((s) => [s.id, { dur: s.duracaoMin, price: s.precoCentavos, name: s.nome }])),
     appts: ags.map((a) => ({ id: a.id, proId: a.profissionalId, date: a.data, time: a.hora, dur: a.duracaoMin })),
   };
@@ -57,7 +57,9 @@ function slotFree(ctx: Ctx, date: string, time: string, proSel: string, ids: str
   if (s < ctx.cfg.open || e > ctx.cfg.close) return null;
   if (!equipe && date === ctx.T && (livre ? s < ctx.nowMin - TOLERANCIA_LIVRE : s <= ctx.nowMin + ctx.cfg.minAdvanceMin)) return null;
   const cand = proSel === 'any' ? ctx.pros.map((p) => p.id) : [proSel];
-  const ok = cand.filter((p) => canDo(ctx, p, ids) && !proBusy(ctx, p, date, s, e, ignore));
+  // folga semanal: o site nao oferece o profissional nesse dia (a equipe ainda pode registrar)
+  const folga = (p: string) => !equipe && !!ctx.pros.find((x) => x.id === p)?.off.includes(dow(date));
+  const ok = cand.filter((p) => canDo(ctx, p, ids) && !folga(p) && !proBusy(ctx, p, date, s, e, ignore));
   if (!ok.length) return null;
   ok.sort((a, b) => dayLoad(ctx, a, date) - dayLoad(ctx, b, date));
   return ok[0];
@@ -111,6 +113,7 @@ export async function conferirHorario(q: { serviceIds?: string; proId?: string; 
     if (s < ctx.cfg.open) motivo = `A barbearia abre às ${ctx.cfg.openTime}.`;
     else if (s + dur > ctx.cfg.close) motivo = `O atendimento precisa terminar até ${ctx.cfg.closeTime} (este leva ${dur} min).`;
     else if (date === ctx.T && s < ctx.nowMin - TOLERANCIA_LIVRE) motivo = 'Esse horário já passou.';
+    else if (proSel !== 'any' && ctx.pros.find((x) => x.id === proSel)?.off.includes(dow(date))) motivo = 'O profissional está de folga neste dia. Escolha outro dia ou "Sem preferência".';
     else motivo = proSel === 'any' ? 'Nenhum profissional está livre nesse horário.' : 'O profissional está ocupado nesse horário.';
   }
   // proximo inicio livre no mesmo dia, de 5 em 5 minutos, a partir do horario pedido (ou de agora)

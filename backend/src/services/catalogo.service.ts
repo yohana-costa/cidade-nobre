@@ -28,7 +28,7 @@ export async function catalogoPublico() {
     settings: cfg,
     categories: categorias.map((c) => ({ id: c.id, name: c.nome, photo: c.foto })),
     services: servicos.map(serviceView),
-    pros: pros.map((p) => ({ id: p.id, name: p.nome, photo: p.foto, services: p.servicos.map((s) => s.id) })),
+    pros: pros.map((p) => ({ id: p.id, name: p.nome, photo: p.foto, daysOff: p.folgas, services: p.servicos.map((s) => s.id) })),
   };
 }
 
@@ -173,6 +173,8 @@ const proSchema = z.object({
   name: z.string().trim().min(2, 'Informe o nome do profissional.').max(60),
   services: z.array(z.string()).optional(),
   order: z.number().int().min(0).max(999).optional(),
+  // folga semanal (0 = domingo ... 6 = sabado); nesses dias o site nao oferece horario com ele
+  daysOff: z.array(z.number().int().min(0).max(6)).max(6, 'O profissional precisa trabalhar ao menos um dia.').optional(),
 });
 
 async function validarServicos(ids: string[]) {
@@ -181,7 +183,7 @@ async function validarServicos(ids: string[]) {
   if (n !== new Set(ids).size) throw falha(400, 'Serviço inválido na lista do profissional.');
 }
 
-const proView = (p: { id: string; nome: string; foto: string | null; ordem: number; servicos: { id: string }[] }) => ({ id: p.id, name: p.nome, photo: p.foto, order: p.ordem, services: p.servicos.map((s) => s.id) });
+const proView = (p: { id: string; nome: string; foto: string | null; ordem: number; folgas: number[]; servicos: { id: string }[] }) => ({ id: p.id, name: p.nome, photo: p.foto, order: p.ordem, daysOff: p.folgas, services: p.servicos.map((s) => s.id) });
 
 export async function criarProfissional(body: unknown) {
   const d = proSchema.parse(body);
@@ -189,10 +191,11 @@ export async function criarProfissional(body: unknown) {
   await validarServicos(ids);
   const existente = await prisma.profissional.findUnique({ where: { nome: d.name } });
   if (existente?.ativo) throw falha(409, 'Já existe um profissional com esse nome.');
-  const data = { nome: d.name, ordem: d.order ?? 0, ativo: true, servicos: { set: [] as { id: string }[] } };
+  const folgas = [...new Set(d.daysOff ?? [])].sort();
+  const data = { nome: d.name, ordem: d.order ?? 0, folgas, ativo: true, servicos: { set: [] as { id: string }[] } };
   const p = existente
     ? await prisma.profissional.update({ where: { id: existente.id }, data: { ...data, servicos: { set: ids.map((id) => ({ id })) } }, include: { servicos: { select: { id: true } } } })
-    : await prisma.profissional.create({ data: { nome: d.name, ordem: d.order ?? 0, servicos: { connect: ids.map((id) => ({ id })) } }, include: { servicos: { select: { id: true } } } });
+    : await prisma.profissional.create({ data: { nome: d.name, ordem: d.order ?? 0, folgas, servicos: { connect: ids.map((id) => ({ id })) } }, include: { servicos: { select: { id: true } } } });
   return proView(p);
 }
 
@@ -207,7 +210,7 @@ export async function atualizarProfissional(id: string, body: unknown) {
   }
   const p = await prisma.profissional.update({
     where: { id },
-    data: { nome: d.name, ordem: d.order, ...(d.services ? { servicos: { set: d.services.map((sid) => ({ id: sid })) } } : {}) },
+    data: { nome: d.name, ordem: d.order, ...(d.daysOff ? { folgas: [...new Set(d.daysOff)].sort() } : {}), ...(d.services ? { servicos: { set: d.services.map((sid) => ({ id: sid })) } } : {}) },
     include: { servicos: { select: { id: true } } },
   });
   return proView(p);

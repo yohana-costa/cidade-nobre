@@ -120,7 +120,7 @@ export async function carregarBase(cfg: Cfg, T: string, nowMin: number): Promise
   const b: Base = {
     cfg, T, nowMin,
     clients: clientes.map(clientView),
-    pros: pros.map((p) => ({ id: p.id, name: p.nome, photo: p.foto, services: p.servicos.map((s) => s.id) })),
+    pros: pros.map((p) => ({ id: p.id, name: p.nome, photo: p.foto, daysOff: p.folgas, services: p.servicos.map((s) => s.id) })),
     appts: ags.map(apptView),
     moves: movs.map(moveView),
     referrals: inds.map(refView),

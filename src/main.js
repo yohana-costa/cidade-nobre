@@ -495,7 +495,7 @@ document.addEventListener('click', async e => {
       case 'pro-new': openLayer({ kind: 'pro-edit', id: null }); break;
       case 'pro-edit': openLayer({ kind: 'pro-edit', id: D.id }); break;
       case 'pro-save': {
-        const v = { name: val('in-pname') };
+        const v = { name: val('in-pname'), daysOff: [...document.querySelectorAll('input[name="pro-off"]')].filter(x => x.checked).map(x => Number(x.value)) };
         const boxes = document.querySelectorAll('input[name="pro-svc"]');
         if (boxes.length) v.services = [...boxes].filter(x => x.checked).map(x => x.value);
         const pend = LAYER && LAYER.file ? { file: LAYER.file, preview: LAYER.preview } : {};
@@ -503,7 +503,7 @@ document.addEventListener('click', async e => {
           if (D.id) await API.put(`/gestao/profissionais/${D.id}`, v, 'staff');
           else { const p = await API.post('/gestao/profissionais', v, 'staff'); if (pend.file) await API.upload(`/gestao/profissionais/${p.id}/foto`, pend.file, 'staff'); }
           closeLayer(); adminChanged(); await loadCatalog(); render(true); toast(`${v.name} salvo.`);
-        } catch (err) { openLayer({ kind: 'pro-edit', id: D.id || null, v: { ...v, services: v.services || [] }, err: err.message, ...pend }); }
+        } catch (err) { openLayer({ kind: 'pro-edit', id: D.id || null, v: { ...v, services: v.services || (D.id ? undefined : []) }, err: err.message, ...pend }); }
         break;
       }
       case 'pro-del': {

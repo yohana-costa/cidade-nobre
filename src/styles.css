@@ -240,6 +240,7 @@ input,select,textarea{font:inherit;color:inherit}
 .pro .av .ic{width:55%;height:55%}
 .pro .lbl{font-family:var(--serif);font-size:calc(13.6 * var(--u));color:#ece6db;text-align:center;line-height:1.1;padding:0 4px}
 .pro .why{font-size:10px;color:var(--muted-2);margin-top:-6px}
+.pro .why.folga{color:var(--gold);opacity:.85}
 .pro .chk{position:absolute;top:7px;right:7px;width:calc(15 * var(--u));height:calc(15 * var(--u));min-width:15px;min-height:15px;border-radius:50%;background:linear-gradient(180deg,#eac078,#d6a75f);color:#1a1004;display:grid;place-items:center}
 .pro .chk .ic{width:70%;height:70%;stroke-width:2.4}
 .days{display:grid;grid-template-columns:repeat(5,1fr);gap:calc(7.5 * var(--u));margin-top:calc(9 * var(--u))}

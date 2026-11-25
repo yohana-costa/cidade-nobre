@@ -95,6 +95,7 @@ model Profissional {
   foto         String? // /uploads/... enviada pela gestao; nulo = icone padrao
   ativo        Boolean       @default(true)
   ordem        Int           @default(0)
+  folgas       Int[]         @default([]) // folga semanal: 0 = domingo ... 6 = sabado
   servicos     Servico[]
   agendamentos Agendamento[] @relation("ProfissionalAtende")
   escolhidoEm  Agendamento[] @relation("ProfissionalEscolhido")
