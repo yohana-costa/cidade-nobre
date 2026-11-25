@@ -18,15 +18,15 @@ export const pedirBar = h<AuthRequest>((req) => bar.criarPedido(req.body, req.ip
 export const verPedidoBar = h((req) => bar.verPedido(req.params.id));
 
 // "ignore" so vale para quem esta logado e e dono do agendamento sendo alterado
-export const disponibilidade = h<AuthRequest>(async (req) => {
-  let ignorar: string | null = null;
+async function ignorarDoCliente(req: AuthRequest) {
   const id = typeof req.query.ignore === 'string' ? req.query.ignore : '';
-  if (id && req.clienteId) {
-    const a = await prisma.agendamento.findUnique({ where: { id }, select: { clienteId: true } });
-    if (a && a.clienteId === req.clienteId) ignorar = id;
-  }
-  return agenda.disponibilidade(req.query as { serviceIds?: string; proId?: string }, ignorar);
-});
+  if (!id || !req.clienteId) return null;
+  const a = await prisma.agendamento.findUnique({ where: { id }, select: { clienteId: true } });
+  return a && a.clienteId === req.clienteId ? id : null;
+}
+export const disponibilidade = h<AuthRequest>(async (req) => agenda.disponibilidade(req.query as { serviceIds?: string; proId?: string }, await ignorarDoCliente(req)));
+// horario personalizado (ex.: 13:34): confere se cabe e sugere o proximo livre
+export const conferirHorario = h<AuthRequest>(async (req) => agenda.conferirHorario(req.query as Record<string, string>, await ignorarDoCliente(req)));
 
 // Mostra o primeiro nome de quem indicou ("Voce foi indicado por Joao").
 export const indicacao = h(async (req) => {

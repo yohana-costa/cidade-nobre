@@ -46,7 +46,7 @@ function stepper(steps) {
 const HOME_CATS = [['cabelo', 'scissors', 'cat_cabelo', 'Corte masculino com degradê'], ['barba', 'beardF', 'cat_barba', 'Barba sendo desenhada com máquina'], ['cuidados', 'lotus', 'cat_cuidados', 'Produtos de cuidado masculino']];
 function vHome() {
   const cb = club();
-  const cats = DB.categories.map(c => { const h = HOME_CATS.find(x => x[0] === c.id); return [c.id, c.name, h ? h[1] : 'scissors', h ? h[2] : 'cat_cabelo', h ? h[3] : c.name]; });
+  const cats = DB.categories.map(c => { const h = HOME_CATS.find(x => x[0] === c.id); return [c.id, c.name, h ? h[1] : 'scissors', c.photo || (h ? h[2] : 'cat_cabelo'), h ? h[3] : c.name]; });
   return `<div class="scr home">
   <div class="home-bar"><button class="menu-btn" data-act="menu" aria-label="Abrir menu">${ic('menu')}</button></div>
   <div class="crest home-sign m-only"><img src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229">${crestCap()}</div>
@@ -318,8 +318,24 @@ function ensureBookingDefaults(av) {
   const days = av.days;
   // dia sem horario livre (ex.: trocou de profissional) cai para o proximo dia com vaga
   if (!d.date || !days.some(x => x.date === d.date && x.any)) { d.date = (days.find(x => x.free >= 4) || days.find(x => x.any) || days[0])?.date || null; d.time = null; }
-  if (d.time && !slotFree(av, d.date, d.time)) d.time = null;
+  // horário personalizado (ex.: 13:34) não está na grade: a API conferiu na hora de escolher
+  if (d.time && !d.customTime && !slotFree(av, d.date, d.time)) d.time = null;
   return days;
+}
+// Horário personalizado: quem chega na barbearia marca a hora exata de início (ex.: 13:34).
+// O sistema soma o tempo dos serviços e o barbeiro fica livre de novo quando o atendimento termina.
+function vSlotCustom(d) {
+  const R = UI.ctimeRes && UI.ctimeRes.date === d.date && UI.ctimeRes.key === availKey(d) ? UI.ctimeRes : null;
+  const chosen = d.customTime && d.time;
+  const val = (R && R.time) || (chosen ? d.time : '');
+  let msg = '';
+  if (chosen && R && R.ok && R.time === d.time) msg = `<div class="sc-msg ok">${ic('check')}<span>Horário <b>${d.time}</b> escolhido. O atendimento vai até <b>${R.end}</b> (${R.dur} min).</span></div>`;
+  else if (R && !R.ok) msg = `<div class="sc-msg err">${ic('alert')}<span>${esc(R.reason || 'Esse horário não está livre.')}${R.next ? ` Próximo horário livre: <b>${R.next}</b>.` : ''}</span>${R.next ? `<button class="btn btn-line btn-sm" data-act="slot-custom" data-time="${R.next}">Usar ${R.next}</button>` : ''}</div>`;
+  return `<div class="slot-custom ${chosen ? 'on' : ''}">
+    <label for="in-ctime"><b>Outro horário</b><span>Chegou na barbearia? Coloque a hora em que o atendimento começa, mesmo quebrada (ex.: 13:34).</span></label>
+    <div class="sc-row"><input id="in-ctime" type="time" step="60" inputmode="numeric" value="${esc(val)}" aria-label="Hora de início"><button class="btn btn-gold btn-sm" data-act="slot-custom">${chosen ? 'Trocar horário' : 'Usar este horário'}</button></div>
+    ${msg}
+  </div>`;
 }
 function vAgendar() {
   const d = UI.draft;
@@ -372,8 +388,9 @@ function vAgendar() {
         </div>
         <div class="bk-h"><h2 class="h-sec h-sec-u">Horários</h2></div>
         <div class="slots" role="radiogroup" aria-label="Horário">
-          ${SLOT_TIMES.map(t => { const ok = d.date && slotFree(av, d.date, t); const on = d.time === t; return `<button class="slot ${on ? 'on' : ''}" role="radio" aria-checked="${on}" ${ok ? `data-act="slot" data-time="${t}"` : 'disabled aria-label="' + t + ' indisponível"'}>${t}</button>`; }).join('')}
-        </div>`}
+          ${SLOT_TIMES.map(t => { const ok = d.date && slotFree(av, d.date, t); const on = d.time === t && !d.customTime; return `<button class="slot ${on ? 'on' : ''}" role="radio" aria-checked="${on}" ${ok ? `data-act="slot" data-time="${t}"` : 'disabled aria-label="' + t + ' indisponível"'}>${t}</button>`; }).join('')}
+        </div>
+        ${d.date ? vSlotCustom(d) : ''}`}
       </div>
       <aside class="bk-side">
         <div class="sumbar">${ic('calendar')}<span>${sumTxt}</span></div>

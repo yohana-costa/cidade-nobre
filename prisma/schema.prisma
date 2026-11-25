@@ -63,6 +63,7 @@ model Categoria {
   id       String    @id // slug: cabelo, barba, cuidados
   nome     String
   ordem    Int       @default(0)
+  foto     String? // /uploads/... trocada pela gestao; nulo = foto padrao do site (cat_<id>)
   servicos Servico[]
 
   @@map("categorias")

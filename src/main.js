@@ -50,6 +50,7 @@ function renderLayer() {
   else if (L.kind === 'client') inner = vClientModal(L.id, L);
   else if (L.kind === 'svc-edit') inner = vSvcEdit(L.id, L);
   else if (L.kind === 'pro-edit') inner = vProEdit(L.id, L);
+  else if (L.kind === 'cat-photo') inner = vCatPhoto(L.id, L);
   else if (L.kind === 'prod-edit') inner = vProdEdit(L.id, L);
   else if (L.kind === 'stk-move') inner = vStkMove(L);
   else if (L.kind === 'card-edit') inner = vCardEdit(L.id, L);
@@ -104,7 +105,7 @@ function setMode(mode, push) {
 }
 
 /* ---- fotos da gestão ---- */
-const PHOTO_PATH = { svc: id => `/gestao/servicos/${id}/imagem`, pro: id => `/gestao/profissionais/${id}/foto`, prod: id => `/gestao/produtos/${id}/foto`, card: id => `/gestao/cardapio/${id}/foto` };
+const PHOTO_PATH = { svc: id => `/gestao/servicos/${id}/imagem`, pro: id => `/gestao/profissionais/${id}/foto`, prod: id => `/gestao/produtos/${id}/foto`, card: id => `/gestao/cardapio/${id}/foto`, cat: id => `/gestao/categorias/${id}/foto` };
 // Recarrega o catálogo da gestão e o do site e redesenha o formulário aberto com a foto nova.
 async function photoChanged(kind) {
   if (kind === 'prod') CACHE.estoque = { data: await API.get('/gestao/estoque', 'staff'), at: Date.now() };
@@ -279,9 +280,23 @@ document.addEventListener('click', async e => {
       case 'cat-filter': UI.cat = D.cat; saveUI(); render(true); break;
       case 'svc-toggle': { const ids = UI.draft.serviceIds; const i = ids.indexOf(D.id); i >= 0 ? ids.splice(i, 1) : ids.push(D.id); saveUI(); render(true); break; }
       case 'svc-continue': if (!UI.draft.serviceIds.length) { toast('Selecione ao menos um serviço.', 'info'); break; } go('agendar'); break;
-      case 'pro': UI.draft.proId = D.id; saveUI(); render(true); break;
-      case 'day': UI.draft.date = D.date; saveUI(); render(true); break;
-      case 'slot': UI.draft.time = D.time; saveUI(); render(true); break;
+      case 'pro': UI.draft.proId = D.id; if (UI.draft.customTime) { UI.draft.time = null; UI.draft.customTime = false; } UI.ctimeRes = null; saveUI(); render(true); break;
+      case 'day': UI.draft.date = D.date; if (UI.draft.customTime) { UI.draft.time = null; UI.draft.customTime = false; } UI.ctimeRes = null; saveUI(); render(true); break;
+      case 'slot': UI.draft.time = D.time; UI.draft.customTime = false; UI.ctimeRes = null; saveUI(); render(true); break;
+      case 'slot-custom': {
+        // horário quebrado: a API confere se o barbeiro está livre pelo tempo todo do serviço
+        const d = UI.draft, tm = D.time || val('in-ctime');
+        const key = availKey(d);
+        if (!/^\d{2}:\d{2}$/.test(tm || '')) { UI.ctimeRes = { ok: false, reason: 'Digite a hora de início, por exemplo 13:34.', date: d.date, key }; render(true); break; }
+        t.disabled = true;
+        try {
+          const r = await API.get(`/publico/disponibilidade/horario?serviceIds=${encodeURIComponent(d.serviceIds.join(','))}&proId=${encodeURIComponent(d.proId)}&date=${d.date}&time=${tm}${d.editingId ? `&ignore=${encodeURIComponent(d.editingId)}` : ''}`, 'client');
+          UI.ctimeRes = { ...r, time: tm, date: d.date, key };
+          if (r.ok) { d.time = tm; d.customTime = true; }
+        } catch (err) { UI.ctimeRes = { ok: false, reason: err.message, time: tm, date: d.date, key }; }
+        saveUI(); render(true);
+        break;
+      }
       case 'to-dados': if (!UI.draft.time) { toast('Escolha um horário para continuar.', 'info'); break; } UI.formErrors = null; go('dados'); break;
       case 'clear-form': Object.assign(UI.draft, { name: '', phone: '', email: '', touched: true }); saveUI(); render(true); document.getElementById('in-name')?.focus(); break;
       case 'go-entrar': UI.afterLogin = 'dados'; UI.authErr = null; go('entrar'); break;
@@ -476,6 +491,7 @@ document.addEventListener('click', async e => {
         catch (err) { LAYER.err = err.message; renderLayer(); }
         break;
       }
+      case 'cat-photo': openLayer({ kind: 'cat-photo', id: D.id }); break;
       case 'pro-new': openLayer({ kind: 'pro-edit', id: null }); break;
       case 'pro-edit': openLayer({ kind: 'pro-edit', id: D.id }); break;
       case 'pro-save': {

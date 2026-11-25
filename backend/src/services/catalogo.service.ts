@@ -26,7 +26,7 @@ export async function catalogoPublico() {
   return {
     today: hoje(),
     settings: cfg,
-    categories: categorias.map((c) => ({ id: c.id, name: c.nome })),
+    categories: categorias.map((c) => ({ id: c.id, name: c.nome, photo: c.foto })),
     services: servicos.map(serviceView),
     pros: pros.map((p) => ({ id: p.id, name: p.nome, photo: p.foto, services: p.servicos.map((s) => s.id) })),
   };
@@ -138,6 +138,24 @@ export async function removerFotoProfissional(id: string) {
   const p = await prisma.profissional.update({ where: { id }, data: { foto: null }, include: { servicos: { select: { id: true } } } });
   await removerFoto(atual.foto);
   return proView(p);
+}
+
+// Foto da categoria no inicio do site ("Muito alem do corte"). Sem foto volta a padrao.
+export async function enviarFotoCategoria(id: string, arquivo: Arquivo) {
+  if (!arquivo) throw falha(400, 'Nenhuma imagem enviada.');
+  const atual = await prisma.categoria.findUnique({ where: { id } });
+  if (!atual) throw falha(404, 'Categoria não encontrada.');
+  const c = await trocarFoto(arquivo, `categoria-${id}`, (url) => prisma.categoria.update({ where: { id }, data: { foto: url } }));
+  await removerFoto(atual.foto);
+  return { id: c.id, name: c.nome, photo: c.foto };
+}
+
+export async function removerFotoCategoria(id: string) {
+  const atual = await prisma.categoria.findUnique({ where: { id } });
+  if (!atual) throw falha(404, 'Categoria não encontrada.');
+  const c = await prisma.categoria.update({ where: { id }, data: { foto: null } });
+  await removerFoto(atual.foto);
+  return { id: c.id, name: c.nome, photo: c.foto };
 }
 
 // Remover nao apaga: o servico sai do catalogo e da equipe, mas os atendimentos antigos

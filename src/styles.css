@@ -255,6 +255,24 @@ input,select,textarea{font:inherit;color:inherit}
 .slot:hover:not([disabled]){border-color:#4a453c}
 .slot.on{background:linear-gradient(180deg,#e2b76f,#cfa25e);border-color:transparent;color:#1a1004;font-weight:600}
 .slot[disabled]{color:#5a564f;text-decoration:line-through;cursor:not-allowed;background:#0f0f0e}
+/* horário personalizado (hora quebrada de quem chegou na barbearia) */
+.slot-custom{margin-top:calc(14 * var(--u));border:1px solid #2c2a26;border-radius:10px;background:#131210;padding:12px 12px 12px 14px;display:flex;flex-direction:column;gap:10px}
+.slot-custom.on{border-color:var(--gold);box-shadow:0 0 0 1px rgba(211,168,101,.25)}
+.slot-custom label{display:flex;flex-direction:column;gap:3px}
+.slot-custom label b{font-family:var(--serif);font-size:16px;font-weight:650;color:var(--cream)}
+.slot-custom label span{font-size:12.5px;color:var(--muted);line-height:1.4}
+.sc-row{display:flex;gap:8px;align-items:stretch}
+.sc-row input{flex:1;min-width:0;height:44px;border-radius:8px;border:1px solid #3a372f;background:#0d0d0c;color:var(--cream);font-size:18px;font-variant-numeric:tabular-nums;padding:0 12px;color-scheme:dark}
+.sc-row input:focus{outline:none;border-color:var(--gold)}
+.sc-row .btn{width:auto;flex:none;min-height:44px;padding:0 14px}
+.sc-msg{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;font-size:13px;line-height:1.4;border-radius:8px;padding:8px 10px}
+.sc-msg .ic{width:16px;height:16px;flex:none;margin-top:1px}
+.sc-msg span{flex:1;min-width:180px}
+.sc-msg.ok{background:rgba(64,140,80,.14);color:#cfe8d3}
+.sc-msg.ok .ic{color:#7bc98a}
+.sc-msg.err{background:rgba(190,70,70,.12);color:#f0d2d2}
+.sc-msg.err .ic{color:#e08a8a}
+.sc-msg .btn{width:auto;min-height:34px}
 .sumbar{display:flex;align-items:center;gap:calc(14 * var(--u));min-height:calc(36 * var(--u));border:1px solid #2a2824;border-radius:8px;background:#121110;padding:6px calc(12 * var(--u));margin-top:calc(14 * var(--u))}
 .sumbar .ic{color:var(--gold);width:calc(21 * var(--u));height:calc(21 * var(--u))}
 .sumbar span{font-family:var(--serif);font-size:calc(14.2 * var(--u));color:#f0e9dd;min-width:0}

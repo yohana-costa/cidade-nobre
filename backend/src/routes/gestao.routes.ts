@@ -35,6 +35,8 @@ router.put('/profissionais/:id', requireGerente, c.atualizarProfissional);
 router.delete('/profissionais/:id', requireGerente, c.removerProfissional);
 router.post('/profissionais/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoProfissional);
 router.delete('/profissionais/:id/foto', requireGerente, c.removerFotoProfissional);
+router.post('/categorias/:id/foto', requireGerente, upload.single('imagem'), c.enviarFotoCategoria);
+router.delete('/categorias/:id/foto', requireGerente, c.removerFotoCategoria);
 
 router.get('/estoque', c.painelEstoque);
 router.post('/produtos', requireGerente, c.criarProduto);

@@ -43,6 +43,8 @@ export const enviarImagemServico = h((req) => catalogo.enviarImagemServico(req.p
 export const removerImagemServico = h((req) => catalogo.removerImagemServico(req.params.id));
 export const enviarFotoProfissional = h((req) => catalogo.enviarFotoProfissional(req.params.id, req.file));
 export const removerFotoProfissional = h((req) => catalogo.removerFotoProfissional(req.params.id));
+export const enviarFotoCategoria = h((req) => catalogo.enviarFotoCategoria(req.params.id, req.file));
+export const removerFotoCategoria = h((req) => catalogo.removerFotoCategoria(req.params.id));
 
 // estoque de produtos
 export const painelEstoque = h(() => estoque.painelEstoque());

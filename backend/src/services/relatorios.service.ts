@@ -244,7 +244,7 @@ export async function catalogoGestao() {
     categories: categorias.map((c) => {
       const ids = servicos.filter((s) => s.categoriaId === c.id).map((s) => s.id);
       const n = b.appts.filter((a) => a.status === 'concluido' && a.date >= from30 && a.serviceIds.some((i) => ids.includes(i))).length;
-      return { id: c.id, name: c.nome, count30: n };
+      return { id: c.id, name: c.nome, photo: c.foto, count30: n };
     }),
     services: servicos.map(serviceView),
     pros: b.pros.map((p) => {

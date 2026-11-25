@@ -44,12 +44,18 @@ const proBusy = (ctx: Ctx, pid: string, date: string, s: number, e: number, igno
   ctx.appts.some((a) => a.proId === pid && a.date === date && a.id !== ignore && s < tmin(a.time) + a.dur && e > tmin(a.time));
 const dayLoad = (ctx: Ctx, pid: string, date: string) => ctx.appts.filter((a) => a.proId === pid && a.date === date).reduce((t, a) => t + a.dur, 0);
 
+// Horario personalizado (fora da grade de 30 min): o cliente que chegou na barbearia marca a hora
+// exata em que o atendimento comeca. Para hoje vale a partir de alguns minutos atras (ja chegou e
+// esta comecando), sem a antecedencia minima da grade.
+const TOLERANCIA_LIVRE = 15;
+
 // Devolve o profissional que atende (ou null). "any" escolhe o de menor carga no dia.
 // equipe = true libera horarios fora da grade do site e datas passadas (registro de balcao).
-function slotFree(ctx: Ctx, date: string, time: string, proSel: string, ids: string[], ignore?: string | null, equipe = false): string | null {
+// livre = true e o horario personalizado do site (ver TOLERANCIA_LIVRE).
+function slotFree(ctx: Ctx, date: string, time: string, proSel: string, ids: string[], ignore?: string | null, equipe = false, livre = false): string | null {
   const d = Math.max(sumDur(ctx, ids), 15), s = tmin(time), e = s + d;
   if (s < ctx.cfg.open || e > ctx.cfg.close) return null;
-  if (!equipe && date === ctx.T && s <= ctx.nowMin + ctx.cfg.minAdvanceMin) return null;
+  if (!equipe && date === ctx.T && (livre ? s < ctx.nowMin - TOLERANCIA_LIVRE : s <= ctx.nowMin + ctx.cfg.minAdvanceMin)) return null;
   const cand = proSel === 'any' ? ctx.pros.map((p) => p.id) : [proSel];
   const ok = cand.filter((p) => canDo(ctx, p, ids) && !proBusy(ctx, p, date, s, e, ignore));
   if (!ok.length) return null;
@@ -64,8 +70,10 @@ function bookingDays(ctx: Ctx, ids: string[], proSel: string, ignore?: string | 
     if (isOpenDay(ctx.cfg, d)) {
       const slots = ctx.cfg.slotTimes.map((t) => ({ time: t, proId: slotFree(ctx, d, t, proSel, ids, ignore) }));
       const free = slots.filter((x) => x.proId).length;
-      // hoje entra na lista so se ainda houver horarios suficientes
-      if (d !== ctx.T || free >= 3) out.push({ date: d, any: free > 0, free, slots });
+      // hoje entra na lista se ainda houver horarios suficientes na grade ou, para horario
+      // personalizado, se o servico ainda cabe antes de fechar
+      const cabeHoje = d === ctx.T && ctx.nowMin + Math.max(sumDur(ctx, ids), 15) <= ctx.cfg.close;
+      if (d !== ctx.T || free >= 3 || cabeHoje) out.push({ date: d, any: free > 0 || cabeHoje, free, slots });
     }
     d = addDays(d, 1);
   }
@@ -82,6 +90,36 @@ export async function disponibilidade(q: { serviceIds?: string; proId?: string }
   for (const i of ids) if (!ctx.svc.has(i)) throw falha(400, 'Serviço indisponível. Atualize a página.');
   if (proSel !== 'any' && !ctx.pros.some((p) => p.id === proSel)) throw falha(400, 'Profissional indisponível.');
   return { today: ctx.T, nowMin: ctx.nowMin, days: bookingDays(ctx, ids, proSel, ignorarId) };
+}
+
+// Confere um horario personalizado do site (ex.: 13:34) e, se nao der, sugere o proximo livre no dia.
+export async function conferirHorario(q: { serviceIds?: string; proId?: string; date?: string; time?: string }, ignorarId: string | null) {
+  const ids = idsSchema.parse(String(q.serviceIds || '').split(',').filter(Boolean));
+  const proSel = q.proId || 'any';
+  const date = String(q.date || ''), time = String(q.time || '');
+  if (!DATA_RE.test(date) || !HORA_RE.test(time)) throw falha(400, 'Informe um horário válido, por exemplo 13:34.');
+  const ctx = await montarCtx(prisma, date, date);
+  for (const i of ids) if (!ctx.svc.has(i)) throw falha(400, 'Serviço indisponível. Atualize a página.');
+  if (date < ctx.T) throw falha(400, 'Escolha uma data a partir de hoje.');
+  if (!isOpenDay(ctx.cfg, date)) throw falha(400, 'A barbearia não abre neste dia.');
+  const dur = Math.max(sumDur(ctx, ids), 15), s = tmin(time);
+  const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const livre = (t: string) => slotFree(ctx, date, t, proSel, ids, ignorarId, false, true);
+  const proId = livre(time);
+  let motivo = '';
+  if (!proId) {
+    if (s < ctx.cfg.open) motivo = `A barbearia abre às ${ctx.cfg.openTime}.`;
+    else if (s + dur > ctx.cfg.close) motivo = `O atendimento precisa terminar até ${ctx.cfg.closeTime} (este leva ${dur} min).`;
+    else if (date === ctx.T && s < ctx.nowMin - TOLERANCIA_LIVRE) motivo = 'Esse horário já passou.';
+    else motivo = proSel === 'any' ? 'Nenhum profissional está livre nesse horário.' : 'O profissional está ocupado nesse horário.';
+  }
+  // proximo inicio livre no mesmo dia, de 5 em 5 minutos, a partir do horario pedido (ou de agora)
+  let next: string | null = null;
+  if (!proId) {
+    const inicio = Math.max(s, ctx.cfg.open, date === ctx.T ? ctx.nowMin : 0);
+    for (let m = Math.ceil(inicio / 5) * 5; m + dur <= ctx.cfg.close; m += 5) if (livre(hhmm(m))) { next = hhmm(m); break; }
+  }
+  return { ok: !!proId, proId, end: hhmm(s + dur), dur, reason: motivo, next };
 }
 
 /* ============ gravar agendamento ============ */
@@ -108,14 +146,14 @@ async function validarReserva(tx: Tx, r: Reserva) {
   if (r.publico) {
     const vis = await tx.servico.count({ where: { id: { in: r.serviceIds }, visivel: true, ativo: true } });
     if (vis !== r.serviceIds.length) throw falha(400, 'Serviço indisponível. Atualize a página e escolha de novo.');
-    if (!ctx.cfg.slotTimes.includes(r.time)) throw falha(400, 'Horário fora da grade de agendamento.');
     if (r.date > addDays(ctx.T, 60)) throw falha(400, 'Agendamentos abrem com até 60 dias de antecedência.');
   }
   if (!r.equipe && r.date < ctx.T) throw falha(400, 'Escolha uma data a partir de hoje.');
   if (!isOpenDay(ctx.cfg, r.date)) throw falha(400, 'A barbearia não abre neste dia.');
   if (r.proId !== 'any' && !ctx.pros.some((p) => p.id === r.proId)) throw falha(400, 'Profissional indisponível.');
   if (r.proId !== 'any' && !canDo(ctx, r.proId, r.serviceIds)) throw falha(400, 'Este profissional não realiza um dos serviços escolhidos.');
-  const pro = slotFree(ctx, r.date, r.time, r.proId, r.serviceIds, r.ignore, !!r.equipe);
+  const livre = !!r.publico && !ctx.cfg.slotTimes.includes(r.time);
+  const pro = slotFree(ctx, r.date, r.time, r.proId, r.serviceIds, r.ignore, !!r.equipe, livre);
   if (!pro) throw falha(409, 'Esse horário acabou de ficar indisponível. Escolha outro horário.');
   const itens = r.serviceIds.map((id, ordem) => {
     const s = ctx.svc.get(id)!;
