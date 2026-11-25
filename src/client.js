@@ -94,16 +94,14 @@ const vitCard = (p, go) => `<div class="vit-card">
   <div class="vit-img">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : `<span class="vit-ph">${ic('box')}</span>`}</div>
   <div class="vit-info"><span class="vit-name">${esc(p.name)}</span><span class="vit-foot">${p.price > 0 ? `<span class="vit-price tnum">${money(p.price)}</span>` : ''}${go ? `<span class="vit-go">${ic('arrow')}</span>` : ''}</span></div>
 </div>`;
-// Categorias da Kauan Cell que aparecem mesmo antes de ter produto (modelo aprovado pela barbearia).
-// Produto cadastrado com outra categoria entra junto. Tocar no card mostra os produtos dela.
-const CEL_CATS = [['Capinhas', 'Capinhas', 'cel_capinhas'], ['Carregadores', 'Carregadores', 'cel_carregadores'], ['Portáteis', 'Carregadores portáteis', 'cel_portateis'], ['Caixas de som', 'Caixas de som', null]];
 const normCat = x => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const shelfData = sh => (VIT && VIT[sh]) || { cats: [], items: [] };
 function shelfCats(sh) {
   const c = shelfData(sh);
-  const list = sh === 'celular' ? CEL_CATS.map(([id, title, img]) => ({ id, title, img: A[img] || null })) : [];
+  // só as categorias que têm produto cadastrado (as fixas de exemplo foram tiradas a pedido do dono)
+  const list = [];
   for (const x of c.cats) if (!list.some(k => normCat(k.id) === normCat(x))) list.push({ id: x, title: x, img: null });
-  // foto do card: a da categoria pronta ou a do primeiro produto com foto
+  // foto do card: a do primeiro produto com foto
   return list.map(k => ({ ...k, items: c.items.filter(i => normCat(i.cat) === normCat(k.id)) })).map(k => ({ ...k, img: k.img || (k.items.find(i => i.photo) || {}).photo || null }));
 }
 const vitTabs = (act) => `<div class="vit-tabs" role="tablist" aria-label="Escolher prateleira">${Object.entries(SHELVES).map(([id, s]) => `<button role="tab" class="vit-tab ${id === VIT_SHELF ? 'on' : ''}" aria-selected="${id === VIT_SHELF}" data-act="${act}" data-shelf="${id}">${esc(s.tab)}</button>`).join('')}</div>`;
