@@ -1102,3 +1102,10 @@ button.vit-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .pv-price{font-family:var(--serif);font-size:24px;font-weight:650;color:var(--cream)}
 .pv-buy .ped-q button[disabled]{opacity:.35;cursor:default}
 .pv-stock{margin:6px 0 0;color:var(--gold)}
+
+/* pagamento online do pedido */
+.bo-paid{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;font-weight:650;color:#3fb66b}
+.bo-paid .ic{width:15px;height:15px}
+.bo-paid.pend{color:var(--muted);font-weight:500}
+.bo-paid.refund{color:#e0645a}
+.pay-btn{text-decoration:none}

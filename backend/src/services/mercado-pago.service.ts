@@ -146,17 +146,18 @@ export const taxaPlataforma = (centavos: number) => {
 
 export const referenciaDe = (agendamentoId: string) => `agendamento-${agendamentoId}`;
 
-export interface Cobranca { titulo: string; centavos: number; agendamentoId: string; expiraEm: Date; nome: string; email?: string | null }
+// agendamentoId e o id do item; pedidos do bar mandam referencia e volta proprias
+export interface Cobranca { titulo: string; centavos: number; agendamentoId: string; expiraEm: Date; nome: string; email?: string | null; referencia?: string; volta?: string }
 
 // Checkout Pro: o cliente paga com Pix ou cartao na pagina do Mercado Pago.
 export async function criarPreferencia(token: string, c: Cobranca) {
-  const volta = `${config.siteUrl}/?pagamento=${c.agendamentoId}`;
+  const volta = c.volta || `${config.siteUrl}/?pagamento=${c.agendamentoId}`;
   const taxa = taxaPlataforma(c.centavos);
   const [nome, ...resto] = c.nome.trim().split(/\s+/);
   const p = await mp<{ id: string; init_point: string }>(token, 'POST', '/checkout/preferences', {
     items: [{ id: c.agendamentoId, title: c.titulo.slice(0, 250), quantity: 1, unit_price: c.centavos / 100, currency_id: 'BRL' }],
     payer: { name: nome, surname: resto.join(' ') || undefined, email: c.email || undefined },
-    external_reference: referenciaDe(c.agendamentoId),
+    external_reference: c.referencia || referenciaDe(c.agendamentoId),
     notification_url: `${config.siteUrl}/api/webhook/mercado-pago`,
     back_urls: { success: volta, pending: volta, failure: volta },
     auto_return: 'approved',

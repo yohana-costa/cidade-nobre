@@ -2,16 +2,20 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { falha } from '../lib/erros';
 import { reais } from '../lib/base';
+import { config } from '../config/env';
+import * as mp from './mercado-pago.service';
 
 // Pedido do site: bebidas do cardapio e produtos da vitrine. O preco vem sempre do cadastro (nunca do navegador)
-// e o pagamento e feito na barbearia. A equipe acompanha e muda o status na gestao.
+// Com o Mercado Pago conectado o cliente paga na hora (Pix ou cartao) e o pedido so aparece
+// para a equipe depois de pago; sem conexao, paga na barbearia. A equipe muda o status na gestao.
 export const STATUS = ['novo', 'preparando', 'entregue', 'cancelado'] as const;
 type Item = { id: string; name: string; price: number; qty: number };
-type Row = { id: string; numero: number; nome: string; profissionalId: string | null; observacao: string; itens: unknown; totalCentavos: number; status: string; criadoEm: Date; atualizadoEm: Date };
+type Row = { id: string; numero: number; nome: string; profissionalId: string | null; observacao: string; itens: unknown; totalCentavos: number; status: string; pagamentoStatus: string; pagamentoLink: string | null; pagoEm: Date | null; criadoEm: Date; atualizadoEm: Date };
 
 const view = (p: Row, pros?: Map<string, string>) => ({
   id: p.id, number: p.numero, name: p.nome, note: p.observacao, items: p.itens as Item[], total: reais(p.totalCentavos),
-  status: p.status, proId: p.profissionalId, pro: p.profissionalId ? pros?.get(p.profissionalId) || null : null,
+  status: p.status, payStatus: p.pagamentoStatus, payLink: p.pagamentoStatus === 'pendente' ? p.pagamentoLink : null, paidAt: p.pagoEm ? p.pagoEm.toISOString() : null,
+  proId: p.profissionalId, pro: p.profissionalId ? pros?.get(p.profissionalId) || null : null,
   at: p.criadoEm.toISOString(), updatedAt: p.atualizadoEm.toISOString(),
 });
 
@@ -61,14 +65,83 @@ export async function criarPedido(body: unknown, ip: string, clienteId: string |
   }
   frear(ip);
   const total = [...qtd].reduce((s, [id, q]) => s + porId.get(id)!.precoCentavos * q, 0);
-  const p = await prisma.pedidoBar.create({ data: { nome: d.name, profissionalId: proId, observacao: d.note, itens, totalCentavos: total, clienteId } });
-  return view(p);
+  const token = total > 0 ? await mp.tokenDaLoja() : null;
+  const expiraEm = new Date(Date.now() + config.mercadoPago.prazoPagamentoMin * 60 * 1000);
+  const p = await prisma.pedidoBar.create({
+    data: { nome: d.name, profissionalId: proId, observacao: d.note, itens, totalCentavos: total, clienteId, ...(token ? { pagamentoStatus: 'pendente', pagamentoExpiraEm: expiraEm } : {}) },
+  });
+  if (!token) return view(p);
+  try {
+    const c = await mp.criarPreferencia(token, {
+      titulo: `Cidade Nobre: pedido nº ${p.numero} (${itens.map((i) => `${i.qty}x ${i.name}`).join(', ')})`,
+      centavos: total, agendamentoId: p.id, expiraEm, nome: d.name,
+      referencia: REF + p.id, volta: `${config.siteUrl}/cardapio?pedido=${p.id}`,
+    });
+    return view(await prisma.pedidoBar.update({ where: { id: p.id }, data: { pagamentoLink: c.link } }));
+  } catch (e) {
+    await prisma.pedidoBar.update({ where: { id: p.id }, data: { status: 'cancelado', pagamentoStatus: 'expirado' } });
+    console.error('[pagamento] falha ao criar a cobranca do pedido', p.id, e);
+    throw falha(502, 'Não foi possível gerar o pagamento agora. Tente de novo em instantes.');
+  }
 }
+
+/* ============ pagamento online do pedido ============ */
+export const REF = 'pedido-';
+// chamado pelo aviso do Mercado Pago e pela conciliacao; o pagamento ja veio conferido na API
+export async function aplicarPagamento(p: mp.PagamentoMp) {
+  const id = (p.external_reference || '').slice(REF.length);
+  if (p.status === 'approved') {
+    const r = await prisma.pedidoBar.updateMany({
+      where: { id, pagamentoStatus: { in: ['pendente', 'expirado'] } },
+      // pago depois do prazo: volta como novo para a equipe entregar
+      data: { pagamentoStatus: 'pago', pagamentoId: String(p.id), pagoEm: p.date_approved ? new Date(p.date_approved) : new Date(), status: 'novo' },
+    });
+    if (r.count) console.log(`[pagamento] pedido do bar ${id} pago (pagamento ${p.id})`);
+  } else if (p.status === 'refunded' || p.status === 'charged_back') {
+    await prisma.pedidoBar.updateMany({ where: { id, pagamentoId: String(p.id) }, data: { pagamentoStatus: 'estornado' } });
+  }
+}
+async function conferir(token: string, id: string) {
+  const lista = await mp.pagamentosDaReferencia(token, REF + id);
+  const ok = lista.find((x) => x.status === 'approved');
+  if (ok) await aplicarPagamento(ok);
+  return !!ok;
+}
+// a cada 2 minutos (junto com a dos agendamentos)
+export async function conciliarPedidos() {
+  const agora = Date.now();
+  const lista = await prisma.pedidoBar.findMany({
+    where: { OR: [{ pagamentoStatus: 'pendente' }, { pagamentoStatus: 'expirado', pagamentoExpiraEm: { gte: new Date(agora - 6 * 3600 * 1000) } }] },
+    select: { id: true, pagamentoStatus: true, pagamentoExpiraEm: true }, take: 200,
+  });
+  if (!lista.length) return;
+  const token = await mp.tokenDaLoja();
+  for (const a of lista) {
+    let pago = false;
+    if (token) {
+      try { pago = await conferir(token, a.id); } catch (e) { console.error('[pagamento] conciliacao do pedido falhou', a.id, e); continue; }
+    }
+    const venceu = a.pagamentoExpiraEm && a.pagamentoExpiraEm.getTime() + 2 * 60 * 1000 < agora;
+    if (!pago && a.pagamentoStatus === 'pendente' && venceu) {
+      await prisma.pedidoBar.updateMany({ where: { id: a.id, pagamentoStatus: 'pendente' }, data: { status: 'cancelado', pagamentoStatus: 'expirado' } });
+    }
+  }
+}
+// pedido que a equipe deve ver: pago online ou para pagar na barbearia
+const VISIVEL = { pagamentoStatus: { in: ['nenhum', 'pago', 'estornado'] } };
 
 // o id do pedido (uuid) so quem pediu tem
 export async function verPedido(id: string) {
-  const p = await prisma.pedidoBar.findUnique({ where: { id } });
+  let p = await prisma.pedidoBar.findUnique({ where: { id } });
   if (!p) throw falha(404, 'Pedido não encontrado.');
+  // volta do Mercado Pago: confere na hora, sem esperar o aviso
+  if (p.pagamentoStatus === 'pendente' || p.pagamentoStatus === 'expirado') {
+    const token = await mp.tokenDaLoja();
+    if (token) {
+      try { if (await conferir(token, id)) p = await prisma.pedidoBar.findUniqueOrThrow({ where: { id } }); }
+      catch (e) { console.error('[pagamento] falha ao consultar o pedido', id, e); }
+    }
+  }
   return view(p);
 }
 
@@ -82,7 +155,7 @@ export async function listaGestao() {
   const desde = new Date(Date.now() - 12 * 3600000);
   const [lista, pros] = await Promise.all([
     prisma.pedidoBar.findMany({
-      where: { OR: [{ status: { in: ['novo', 'preparando'] } }, { atualizadoEm: { gte: desde } }] },
+      where: { ...VISIVEL, OR: [{ status: { in: ['novo', 'preparando'] } }, { atualizadoEm: { gte: desde } }] },
       orderBy: { criadoEm: 'desc' }, take: 200,
     }),
     nomesPros(),
@@ -98,4 +171,4 @@ export async function mudarStatus(id: string, body: unknown) {
   return view(n, await nomesPros());
 }
 
-export const pedidosAbertos = () => prisma.pedidoBar.count({ where: { status: { in: ['novo', 'preparando'] } } });
+export const pedidosAbertos = () => prisma.pedidoBar.count({ where: { ...VISIVEL, status: { in: ['novo', 'preparando'] } } });

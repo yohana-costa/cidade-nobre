@@ -183,8 +183,8 @@ function vProdView(L) {
       ${pros.length ? `<div class="fld"><label for="ped-pro">Quem está te atendendo?<em>opcional</em></label><select id="ped-pro"><option value="">Ainda não sei</option>${pros.map(x => `<option value="${esc(x.id)}" ${PEDF.proId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
       ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
     </form>
-    <p class="note">A equipe recebe o pedido na hora e separa o produto para você. O pagamento é feito na barbearia.</p>`,
-  `<button class="btn btn-ghost" data-act="close">Voltar</button><button class="btn btn-gold" data-act="pv-send" ${L.sending ? 'disabled' : ''}>${L.sending ? 'Enviando…' : `Pedir · ${money(q * p.price)}`}</button>`);
+    <p class="note">${payOn() ? 'Você paga agora, com Pix ou cartão, pelo Mercado Pago. Depois de aprovado, a equipe separa o produto para você.' : 'A equipe recebe o pedido na hora e separa o produto para você. O pagamento é feito na barbearia.'}</p>`,
+  `<button class="btn btn-ghost" data-act="close">Voltar</button><button class="btn btn-gold" data-act="pv-send" ${L.sending ? 'disabled' : ''}>${L.sending ? 'Enviando…' : `${payOn() ? 'Comprar' : 'Pedir'} · ${money(q * p.price)}`}</button>`);
 }
 // barrinha de progresso embaixo do carrossel
 function vitBars() {
@@ -251,9 +251,17 @@ let BAR_ID = (() => { try { return sessionStorage.getItem(BAR_KEY); } catch (e) 
 let PEDF = { name: '', proId: '', note: '' };
 const BAR_ST = { novo: ['Recebido', 'A equipe recebeu seu pedido.'], preparando: ['Preparando', 'Seu pedido está sendo preparado.'], entregue: ['Entregue', 'Pedido entregue. Aproveite!'], cancelado: ['Cancelado', 'A equipe cancelou este pedido. Fale com a recepção.'] };
 const barOpen = () => BAR && (BAR.status === 'novo' || BAR.status === 'preparando');
+// pagamento online (Mercado Pago): o pedido só vai para a equipe depois de pago
+const payOn = () => !!((CARD && CARD.payOnline) || (VIT && VIT.payOnline));
+const barPend = () => BAR && BAR.payStatus === 'pendente';
+function barInfo() {
+  if (BAR.payStatus === 'pendente') return ['Aguardando pagamento', 'Finalize o pagamento para a equipe receber o seu pedido.'];
+  if (BAR.payStatus === 'expirado') return ['Pagamento não concluído', 'O pedido não foi pago e foi cancelado. Se quiser, faça o pedido de novo.'];
+  return BAR_ST[BAR.status] || BAR_ST.novo;
+}
 async function loadBar() {
   if (!BAR_ID) return false;
-  try { const b = await API.get(`/publico/pedidos-bar/${encodeURIComponent(BAR_ID)}`); const changed = !BAR || BAR.status !== b.status; BAR = b; return changed; }
+  try { const b = await API.get(`/publico/pedidos-bar/${encodeURIComponent(BAR_ID)}`); const changed = !BAR || BAR.status !== b.status || BAR.payStatus !== b.payStatus; BAR = b; return changed; }
   catch (e) { if (e.status === 404) { BAR = null; BAR_ID = null; try { sessionStorage.removeItem(BAR_KEY); } catch (x) { /* */ } } return false; }
 }
 function barSteps(st) {
@@ -263,16 +271,18 @@ function barSteps(st) {
 }
 function barCard() {
   if (!BAR || (!barOpen() && BAR.status !== 'entregue' && BAR.status !== 'cancelado')) return '';
-  return `<button class="cd-status st-${BAR.status}" data-act="bar-open"><span class="cd-status-ic">${ic(BAR.status === 'cancelado' ? 'alert' : BAR.status === 'entregue' ? 'check' : 'glass')}</span><span><b>Pedido nº ${BAR.number} · ${BAR_ST[BAR.status][0]}</b><small>${BAR_ST[BAR.status][1]}</small></span>${ic('right', 'chev')}</button>`;
+  const [t, d] = barInfo();
+  return `<button class="cd-status st-${barPend() ? 'novo' : BAR.status}" data-act="bar-open"><span class="cd-status-ic">${ic(BAR.status === 'cancelado' ? 'alert' : BAR.status === 'entregue' ? 'check' : 'glass')}</span><span><b>Pedido nº ${BAR.number} · ${t}</b><small>${d}</small></span>${ic('right', 'chev')}</button>`;
 }
 function vBarStatus() {
   if (!BAR) return sheet('Seu pedido', '', '<div class="empty">Pedido não encontrado.</div>');
-  const [t, d] = BAR_ST[BAR.status] || BAR_ST.novo;
-  return sheet(`Pedido nº ${BAR.number}`, t, `${BAR.status === 'cancelado' ? `<div class="callout">${ic('alert')}<span>${d}</span></div>` : `${barSteps(BAR.status)}<p class="note" style="text-align:center;margin:6px 0 12px">${d}${barOpen() ? ' Esta tela atualiza sozinha.' : ''}</p>`}
+  const [t, d] = barInfo(), pend = barPend();
+  return sheet(`Pedido nº ${BAR.number}`, t, `${BAR.status === 'cancelado' ? `<div class="callout">${ic('alert')}<span>${d}</span></div>` : pend ? `<div class="callout gold">${ic('clock')}<span>${d}</span></div>` : `${barSteps(BAR.status)}<p class="note" style="text-align:center;margin:6px 0 12px">${d}${barOpen() ? ' Esta tela atualiza sozinha.' : ''}</p>`}
     <div class="ped-list">${BAR.items.map(i => `<div class="ped-row ped-sent"><span class="ped-nm"><b>${i.qty}× ${esc(i.name)}</b><small>${money(i.price)} cada</small></span><span class="ped-v tnum">${money(i.qty * i.price)}</span></div>`).join('')}
     <div class="ped-tot"><span>Total</span><b class="tnum">${money(BAR.total)}</b></div></div>
-    <p class="note">Pagamento na barbearia.</p>`,
-  `${!barOpen() ? '<button class="btn btn-ghost" data-act="bar-forget">Fazer outro pedido</button>' : ''}<button class="btn btn-gold" data-act="close">Ok</button>`);
+    <p class="note">${BAR.payStatus === 'pago' ? 'Pago online.' : BAR.payStatus === 'nenhum' ? 'Pagamento na barbearia.' : BAR.payStatus === 'estornado' ? 'Pagamento estornado.' : 'Pix ou cartão, pelo Mercado Pago.'}</p>`,
+  pend ? `<button class="btn btn-ghost" data-act="bar-forget">Desistir</button>${BAR.payLink ? `<a class="btn btn-gold pay-btn" href="${esc(BAR.payLink)}">Pagar agora</a>` : ''}`
+    : `${!barOpen() ? '<button class="btn btn-ghost" data-act="bar-forget">Fazer outro pedido</button>' : ''}<button class="btn btn-gold" data-act="close">Ok</button>`);
 }
 function vPedido(L) {
   const list = pedItems();
@@ -288,8 +298,8 @@ function vPedido(L) {
       <div class="fld"><label for="ped-note">Observação<em>opcional</em></label><input id="ped-note" maxlength="140" value="${esc(PEDF.note)}" placeholder="Ex.: sem gelo, com limão"></div>
       ${L && L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
     </form>
-    <p class="note">O pagamento das bebidas é feito na barbearia.</p>`,
-  `<button class="btn btn-ghost" data-act="cd-clear">Limpar</button><button class="btn btn-gold" data-act="cd-send" ${L && L.sending ? 'disabled' : ''}>${L && L.sending ? 'Enviando…' : 'Enviar pedido'}</button>`);
+    <p class="note">${payOn() ? 'Você paga agora, com Pix ou cartão, pelo Mercado Pago. A equipe recebe o pedido assim que o pagamento for aprovado.' : 'O pagamento das bebidas é feito na barbearia.'}</p>`,
+  `<button class="btn btn-ghost" data-act="cd-clear">Limpar</button><button class="btn btn-gold" data-act="cd-send" ${L && L.sending ? 'disabled' : ''}>${L && L.sending ? 'Enviando…' : payOn() ? `Pagar ${money(tot)}` : 'Enviar pedido'}</button>`);
 }
 
 /* ---------- Serviços ---------- */

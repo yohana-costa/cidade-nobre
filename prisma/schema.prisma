@@ -286,10 +286,17 @@ model PedidoBar {
   totalCentavos  Int
   status         String   @default("novo") // novo | preparando | entregue | cancelado
   clienteId      String?
+  // pagamento online (Mercado Pago): nenhum (paga na barbearia) | pendente | pago | expirado | estornado
+  pagamentoStatus   String    @default("nenhum")
+  pagamentoLink     String?
+  pagamentoId       String?
+  pagamentoExpiraEm DateTime?
+  pagoEm            DateTime?
   criadoEm       DateTime @default(now())
   atualizadoEm   DateTime @updatedAt
 
   @@index([status, criadoEm])
+  @@index([pagamentoStatus])
   @@map("pedidos_bar")
 }
 

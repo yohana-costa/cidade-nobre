@@ -21,6 +21,7 @@ function prateleira(lista: Prod[]) {
 }
 
 export async function vitrine() {
+  const conf = await prisma.configuracao.findUnique({ where: { id: 1 }, select: { mercadoPagoAccessToken: true } });
   const produtos = await prisma.produto.findMany({
     where: { ativo: true, quantidade: { gt: 0 }, vitrine: { in: ['celular', 'barbearia'] } },
     orderBy: [{ categoria: 'asc' }, { nome: 'asc' }],
@@ -28,5 +29,6 @@ export async function vitrine() {
   return {
     celular: prateleira(produtos.filter((p) => p.vitrine === 'celular')),
     barbearia: prateleira(produtos.filter((p) => p.vitrine === 'barbearia')),
+    payOnline: !!conf?.mercadoPagoAccessToken, // pedido pago na hora pelo Mercado Pago
   };
 }

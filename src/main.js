@@ -204,6 +204,7 @@ document.addEventListener('click', async e => {
           BAR = b; BAR_ID = b.id;
           try { sessionStorage.setItem(BAR_KEY, b.id); localStorage.setItem(BAR_NAME, PEDF.name); } catch (e) { /* */ }
           PED = {}; pedSave(); PEDF.note = '';
+          if (b.payLink) { toast('Abrindo o pagamento…', 'clock'); location.href = b.payLink; break; }
           openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
         } catch (err) {
           if (err.status === 409) { CARD = null; await loadCardapio(); }
@@ -225,6 +226,7 @@ document.addEventListener('click', async e => {
           const b = await API.post('/publico/pedidos-bar', { name: PEDF.name, proId: PEDF.proId || null, note: '', items: [{ id: p.id, qty: LAYER.q || 1 }] }, ME ? 'client' : undefined);
           BAR = b; BAR_ID = b.id;
           try { sessionStorage.setItem(BAR_KEY, b.id); localStorage.setItem(BAR_NAME, PEDF.name); } catch (e) { /* */ }
+          if (b.payLink) { toast('Abrindo o pagamento…', 'clock'); location.href = b.payLink; break; }
           openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
         } catch (err) {
           if (err.status === 409) { VIT = null; await loadVitrine(); render(true); }
@@ -759,6 +761,9 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   let ref = null;
   if (m) { ref = m[1].toUpperCase(); UI.refCode = ref; UI.screen = 'home'; history.replaceState(null, '', '/'); }
   UI.mode = /^\/gestao/.test(location.pathname) ? 'admin' : 'client';
+  // volta do pagamento do pedido: /cardapio?pedido=<id>
+  const pedVolta = location.search.match(/[?&]pedido=([0-9a-f-]{36})/i);
+  if (pedVolta) { BAR_ID = pedVolta[1]; try { sessionStorage.setItem(BAR_KEY, BAR_ID); } catch (e) { /* */ } }
   // QR Code da mesa: /cardapio (ou ?cardapio) abre direto no cardápio
   if (/^\/cardapio\/?$/.test(location.pathname) || /[?&]cardapio(=|&|$)/.test(location.search)) {
     UI.mode = 'client'; UI.screen = 'cardapio'; LAYER = null; history.replaceState(null, '', '/');
@@ -772,7 +777,7 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   render();
   // a vitrine chega depois e redesenha o inicio sem travar a abertura do site
   const vit = loadVitrine();
-  loadBar().then(ch => { if (ch && UI.mode === 'client' && UI.screen === 'cardapio' && !LAYER) render(true, true); });
+  const barP = loadBar().then(ch => { if (!pedVolta && ch && UI.mode === 'client' && UI.screen === 'cardapio' && !LAYER) render(true, true); });
   await Promise.all([loadCatalog(), loadMe(), UI.mode === 'admin' ? loadStaff() : Promise.resolve()]);
   if (pg) {
     try { await checkPayment(pg[1]); UI.screen = 'confirmado'; UI.mode = 'client'; }
@@ -786,6 +791,10 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
   if (UI.screen === 'agendar' && !UI.draft.serviceIds.length) UI.screen = 'servicos';
   saveUI();
   render();
+  if (pedVolta) {
+    await barP;
+    if (BAR) { openLayer({ kind: 'bar' }); if (BAR.payStatus === 'pago') toast(`Pagamento aprovado. Pedido nº ${BAR.number} enviado para a equipe.`, 'check'); }
+  }
   vit.then(() => { if (UI.mode === 'client' && UI.screen === 'home' && !LAYER && DB.loaded) render(true, true); });
   if (ref) {
     try { const r = await API.get(`/publico/indicacao/${encodeURIComponent(ref)}`); toast(`Você foi indicado por ${r.firstName}. Agende seu primeiro horário.`, 'userPlus'); }

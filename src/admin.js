@@ -429,7 +429,8 @@ function barOrder(o) {
     <div class="bo-b">
       <ul class="bo-items">${o.items.map(i => `<li><span>${i.qty}× ${esc(i.name)}</span><span class="tnum">${money(i.price * i.qty)}</span></li>`).join('')}</ul>
       ${o.note ? `<div class="bo-note">${ic('msg')}${esc(o.note)}</div>` : ''}
-      <div class="bo-tot"><span>${o.status === 'entregue' ? 'Total' : 'Total a pagar'}</span><b class="tnum">${money(o.total)}</b></div>
+      <div class="bo-tot"><span>${o.payStatus === 'pago' ? 'Total' : o.status === 'entregue' ? 'Total' : 'Total a pagar'}</span><b class="tnum">${money(o.total)}</b></div>
+      ${o.payStatus === 'pago' ? `<div class="bo-paid">${ic('check')}Pago online</div>` : o.payStatus === 'estornado' ? `<div class="bo-paid refund">${ic('alert')}Pagamento estornado</div>` : `<div class="bo-paid pend">Cobrar na barbearia</div>`}
       ${open ? `<button class="bo-main" data-act="bar-st" data-id="${o.id}" data-st="entregue">Marcar como entregue</button>
       <div class="bo-more">${o.status === 'novo' ? `<button class="link" data-act="bar-st" data-id="${o.id}" data-st="preparando">Começar a preparar</button>` : `<span class="note">${ago(o.at)}</span>`}<button class="link" data-act="bar-st" data-id="${o.id}" data-st="cancelado">Cancelar pedido</button></div>` : ''}
     </div>
@@ -446,7 +447,7 @@ function vBarOrders() {
     <div class="bo-tabs" role="tablist"><button role="tab" class="${tab === 'open' ? 'on' : ''}" aria-selected="${tab === 'open'}" data-act="botab" data-k="open">Em aberto · ${open.length}</button><button role="tab" class="${tab === 'done' ? 'on' : ''}" aria-selected="${tab === 'done'}" data-act="botab" data-k="done">Entregues${done.length ? ' · ' + done.length : ''}</button></div>
     ${list.length ? `<div class="bo-grid">${list.map(barOrder).join('')}</div>`
       : `<div class="empty">${tab === 'open' ? 'Nenhum pedido em aberto. Quando um cliente pedir pelo site, ele aparece aqui com aviso e som.' : 'Nenhum pedido entregue nas últimas 12 horas.'}</div>`}
-    <p class="note" style="margin-top:12px">Pagamento na barbearia. Entregues e cancelados ficam aqui por 12 horas.</p>
+    <p class="note" style="margin-top:12px">Pedidos pagos no site aparecem como "Pago online"; os que ainda não foram pagos não aparecem. Entregues e cancelados ficam aqui por 12 horas.</p>
   </div>`;
 }
 function vCardAdmin() {

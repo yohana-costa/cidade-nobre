@@ -4,6 +4,7 @@ import { falha } from '../lib/erros';
 import { apptInclude, apptView } from '../lib/base';
 import * as agenda from './agenda.service';
 import * as mp from './mercado-pago.service';
+import * as bar from './pedidos-bar.service';
 
 /*
  * Agendamento pago pelo site.
@@ -49,6 +50,7 @@ const PREFIXO = 'agendamento-';
 
 async function aplicarPagamento(p: mp.PagamentoMp) {
   const ref = p.external_reference || '';
+  if (ref.startsWith(bar.REF)) return bar.aplicarPagamento(p);
   if (!ref.startsWith(PREFIXO)) return;
   const id = ref.slice(PREFIXO.length);
   if (p.status === 'approved') {
@@ -118,6 +120,7 @@ export async function conciliar() {
   if (rodando) return;
   rodando = true;
   try {
+    await bar.conciliarPedidos().catch((e) => console.error('[pagamento] falha na conciliação dos pedidos', e));
     const agora = Date.now();
     const lista = await prisma.agendamento.findMany({
       where: {

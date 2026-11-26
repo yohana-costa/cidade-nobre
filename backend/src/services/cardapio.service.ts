@@ -18,8 +18,12 @@ const view = (i: Row) => ({ id: i.id, name: i.nome, cat: i.categoria, price: rea
 const ordem = [{ categoria: 'asc' as const }, { ordem: 'asc' as const }, { nome: 'asc' as const }];
 
 export async function cardapioPublico() {
-  const itens = await prisma.itemCardapio.findMany({ where: { ativo: true, visivel: true }, orderBy: ordem });
-  return { categories: CATEGORIAS, items: itens.map(view) };
+  const [itens, c] = await Promise.all([
+    prisma.itemCardapio.findMany({ where: { ativo: true, visivel: true }, orderBy: ordem }),
+    prisma.configuracao.findUnique({ where: { id: 1 }, select: { mercadoPagoAccessToken: true } }),
+  ]);
+  // payOnline: o pedido do site e pago na hora pelo Mercado Pago
+  return { categories: CATEGORIAS, items: itens.map(view), payOnline: !!c?.mercadoPagoAccessToken };
 }
 
 export async function cardapioGestao() {
