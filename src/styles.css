@@ -1091,3 +1091,14 @@ button.vit-all{background:none;border:0;cursor:pointer}
   .catg-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
   .catg .d-page{max-width:1100px}
 }
+
+/* ficha do produto da vitrine */
+button.vit-card{font:inherit;text-align:left;padding:0;cursor:pointer}
+button.vit-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.pv-img{aspect-ratio:1;max-height:340px;margin:0 auto;background:#fff;border-radius:var(--r);overflow:hidden;display:grid;place-items:center}
+.pv-img img{width:100%;height:100%;object-fit:contain}
+.pv-desc{color:var(--muted);font-size:14px;line-height:1.5;margin:12px 0 0;white-space:pre-line}
+.pv-buy{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.pv-price{font-family:var(--serif);font-size:24px;font-weight:650;color:var(--cream)}
+.pv-buy .ped-q button[disabled]{opacity:.35;cursor:default}
+.pv-stock{margin:6px 0 0;color:var(--gold)}

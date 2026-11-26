@@ -90,10 +90,10 @@ const SHELVES = {
 function vitTrack(cards) {
   return `<div class="vit-track">${cards}</div><div class="vit-bar" aria-hidden="true"><i></i></div>`;
 }
-const vitCard = (p, go) => `<div class="vit-card">
+const vitCard = (p, go) => `<button class="vit-card vit-prod" data-act="prod-view" data-id="${esc(p.id)}" aria-label="Ver ${esc(p.name)}">
   <div class="vit-img">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : `<span class="vit-ph">${ic('box')}</span>`}</div>
   <div class="vit-info"><span class="vit-name">${esc(p.name)}</span><span class="vit-foot">${p.price > 0 ? `<span class="vit-price tnum">${money(p.price)}</span>` : ''}${go ? `<span class="vit-go">${ic('arrow')}</span>` : ''}</span></div>
-</div>`;
+</button>`;
 const normCat = x => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const shelfData = sh => (VIT && VIT[sh]) || { cats: [], items: [] };
 function shelfCats(sh) {
@@ -155,13 +155,36 @@ function vCatalogo() {
       ${vitTabs('catg-shelf')}
       <div class="vit-head">
         <span class="vit-logo">${S.logo()}</span>
-        <div class="vit-tt"><h2>Catálogo</h2><p class="catg-sub">${esc(S.title)} à venda na barbearia. Peça na recepção.</p></div>
+        <div class="vit-tt"><h2>Catálogo</h2><p class="catg-sub">${esc(S.title)} à venda na barbearia. Toque no produto para pedir.</p></div>
       </div>
       ${cats.length ? vitChips(cats, sub, 'catg-sub') : ''}
       ${body}
     </div>
   </div>
   </div>`;
+}
+// Ficha do produto: foto grande, preço e pedido direto (cai no painel de pedidos da gestão)
+const vitFind = id => { for (const sh of Object.keys(SHELVES)) { const p = shelfData(sh).items.find(i => i.id === id); if (p) return p; } return null; };
+function vProdView(L) {
+  const p = vitFind(L.id);
+  if (!p) return sheet('Produto', '', '<div class="empty">Este produto acabou de sair da vitrine. Fale com a recepção.</div>', '<button class="btn btn-gold" data-act="close">Voltar</button>');
+  const max = Math.max(1, p.stock || 1), q = Math.min(max, L.q || 1);
+  if (!PEDF.name) { let saved = ''; try { saved = localStorage.getItem(BAR_NAME) || ''; } catch (e) { /* */ } PEDF.name = (ME && ME.client && ME.client.name) || saved; }
+  const pros = (DB.pros || []);
+  return sheet(esc(p.name), p.cat ? esc(p.cat) : '', `<div class="pv">
+    <div class="pv-img">${p.photo ? `<img src="${esc(p.photo)}" alt="${esc(p.name)}">` : `<span class="vit-ph">${ic('box')}</span>`}</div>
+    ${p.desc ? `<p class="pv-desc">${esc(p.desc)}</p>` : ''}
+    <div class="pv-buy"><span class="pv-price tnum">${money(p.price)}</span>
+      <span class="ped-q"><button data-act="pv-dec" aria-label="Tirar um" ${q <= 1 ? 'disabled' : ''}>${ic('minus')}</button><b class="tnum">${q}</b><button data-act="pv-inc" aria-label="Colocar mais um" ${q >= max ? 'disabled' : ''}>${ic('plus')}</button></span></div>
+    ${max <= 3 ? `<p class="note pv-stock">${max === 1 ? 'Última unidade' : `Restam ${max} unidades`}</p>` : ''}
+    </div>
+    <form class="form" id="pv-form" style="margin-top:10px" novalidate>
+      <div class="fld"><label for="ped-name">Seu nome</label><input id="ped-name" maxlength="60" autocomplete="name" value="${esc(PEDF.name)}" placeholder="Para a equipe saber de quem é"></div>
+      ${pros.length ? `<div class="fld"><label for="ped-pro">Quem está te atendendo?<em>opcional</em></label><select id="ped-pro"><option value="">Ainda não sei</option>${pros.map(x => `<option value="${esc(x.id)}" ${PEDF.proId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
+      ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
+    </form>
+    <p class="note">A equipe recebe o pedido na hora e separa o produto para você. O pagamento é feito na barbearia.</p>`,
+  `<button class="btn btn-ghost" data-act="close">Voltar</button><button class="btn btn-gold" data-act="pv-send" ${L.sending ? 'disabled' : ''}>${L.sending ? 'Enviando…' : `Pedir · ${money(q * p.price)}`}</button>`);
 }
 // barrinha de progresso embaixo do carrossel
 function vitBars() {

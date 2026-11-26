@@ -56,6 +56,7 @@ function renderLayer() {
   else if (L.kind === 'card-edit') inner = vCardEdit(L.id, L);
   else if (L.kind === 'pedido') inner = vPedido(L);
   else if (L.kind === 'bar') inner = vBarStatus();
+  else if (L.kind === 'prod-view') inner = vProdView(L);
   else if (L.kind === 'new-appt') inner = vNewAppt(L);
   else if (L.kind === 'draft') inner = vDraftMsg(L.id, L.k);
   else inner = vSheet(L);
@@ -206,6 +207,27 @@ document.addEventListener('click', async e => {
           openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
         } catch (err) {
           if (err.status === 409) { CARD = null; await loadCardapio(); }
+          if (LAYER) { LAYER.sending = false; LAYER.err = err.message; renderLayer(); }
+        }
+        break;
+      }
+      // produto da vitrine: abre a ficha e pede direto
+      case 'prod-view': openLayer({ kind: 'prod-view', id: D.id, q: 1 }); break;
+      case 'pv-inc': case 'pv-dec': {
+        const p = vitFind(LAYER.id); if (!p) break;
+        LAYER.q = Math.max(1, Math.min(Math.max(1, p.stock || 1), (LAYER.q || 1) + (act === 'pv-inc' ? 1 : -1))); LAYER.keep = true; renderLayer(); break;
+      }
+      case 'pv-send': {
+        const p = vitFind(LAYER.id); if (!p) break;
+        if (!String(PEDF.name || '').trim()) { LAYER.err = 'Informe seu nome para a equipe saber de quem é o pedido.'; LAYER.keep = true; renderLayer(); document.getElementById('ped-name')?.focus(); break; }
+        LAYER.sending = true; LAYER.err = null; LAYER.keep = true; renderLayer();
+        try {
+          const b = await API.post('/publico/pedidos-bar', { name: PEDF.name, proId: PEDF.proId || null, note: '', items: [{ id: p.id, qty: LAYER.q || 1 }] }, ME ? 'client' : undefined);
+          BAR = b; BAR_ID = b.id;
+          try { sessionStorage.setItem(BAR_KEY, b.id); localStorage.setItem(BAR_NAME, PEDF.name); } catch (e) { /* */ }
+          openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
+        } catch (err) {
+          if (err.status === 409) { VIT = null; await loadVitrine(); render(true); }
           if (LAYER) { LAYER.sending = false; LAYER.err = err.message; renderLayer(); }
         }
         break;
@@ -708,7 +730,7 @@ document.addEventListener('focusout', e => {
   const k = t.id.slice(3), errs = validate(UI.draft), fld = t.closest('.fld');
   if (errs[k] && t.value) { if (!fld.classList.contains('err')) { fld.classList.add('err'); fld.insertAdjacentHTML('beforeend', `<div class="msg">${ic('alert')}${errs[k]}</div>`); } }
 });
-const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]', 'ped-form': '[data-act="cd-send"]' };
+const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]', 'ped-form': '[data-act="cd-send"]', 'pv-form': '[data-act="pv-send"]' };
 document.addEventListener('submit', e => {
   e.preventDefault();
   const sel = SUBMIT[e.target.id];

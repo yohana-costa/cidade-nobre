@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { falha } from '../lib/erros';
 import { reais } from '../lib/base';
 
-// Pedido de bebidas do cardapio do site. O preco vem sempre do cadastro (nunca do navegador)
+// Pedido do site: bebidas do cardapio e produtos da vitrine. O preco vem sempre do cadastro (nunca do navegador)
 // e o pagamento e feito na barbearia. A equipe acompanha e muda o status na gestao.
 export const STATUS = ['novo', 'preparando', 'entregue', 'cancelado'] as const;
 type Item = { id: string; name: string; price: number; qty: number };
@@ -37,14 +37,21 @@ const novoSchema = z.object({
 export async function criarPedido(body: unknown, ip: string, clienteId: string | null) {
   const d = novoSchema.parse(body);
   const ids = [...new Set(d.items.map((i) => i.id))];
-  const cadastro = await prisma.itemCardapio.findMany({ where: { id: { in: ids }, ativo: true, visivel: true } });
-  const porId = new Map(cadastro.map((c) => [c.id, c]));
+  // bebida do cardapio ou produto da vitrine (Kauan Cell / produtos da barbearia)
+  const [cadastro, produtos] = await Promise.all([
+    prisma.itemCardapio.findMany({ where: { id: { in: ids }, ativo: true, visivel: true } }),
+    prisma.produto.findMany({ where: { id: { in: ids }, ativo: true, vitrine: { in: ['celular', 'barbearia'] }, precoCentavos: { gt: 0 } } }),
+  ]);
+  const porId = new Map<string, { nome: string; precoCentavos: number; saldo: number | null }>();
+  for (const c of cadastro) porId.set(c.id, { nome: c.nome, precoCentavos: c.precoCentavos, saldo: null });
+  for (const p of produtos) porId.set(p.id, { nome: p.nome, precoCentavos: p.precoCentavos, saldo: p.quantidade });
   const qtd = new Map<string, number>();
   for (const i of d.items) qtd.set(i.id, Math.min(20, (qtd.get(i.id) || 0) + i.qty));
   const itens: Item[] = [];
   for (const [id, q] of qtd) {
     const c = porId.get(id);
-    if (!c) throw falha(409, 'Um item do seu pedido saiu do cardápio. Confira o pedido e envie de novo.');
+    if (!c || c.saldo === 0) throw falha(409, 'Um item do seu pedido não está mais disponível. Confira o pedido e envie de novo.');
+    if (c.saldo !== null && q > c.saldo) throw falha(409, `Temos só ${c.saldo} de ${c.nome} agora. Diminua a quantidade e envie de novo.`);
     itens.push({ id, name: c.nome, price: reais(c.precoCentavos), qty: q });
   }
   let proId: string | null = null;

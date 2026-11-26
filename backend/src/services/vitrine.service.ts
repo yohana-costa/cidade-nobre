@@ -10,7 +10,7 @@ const ordemCat = (a: string, b: string) => a.localeCompare(b, 'pt-BR');
 type Prod = Awaited<ReturnType<typeof prisma.produto.findMany>>[number];
 
 function prateleira(lista: Prod[]) {
-  const item = (p: Prod) => ({ id: p.id, name: p.nome, desc: p.descricao, price: reais(p.precoCentavos), photo: p.foto, cat: p.categoria });
+  const item = (p: Prod) => ({ id: p.id, name: p.nome, desc: p.descricao, price: reais(p.precoCentavos), photo: p.foto, cat: p.categoria, stock: Math.min(p.quantidade, 20) });
   // intercala as categorias (uma capinha, um carregador...) para o "Todos" ficar variado
   const filas = new Map<string, Prod[]>();
   for (const p of lista) filas.set(p.categoria, [...(filas.get(p.categoria) || []), p]);
