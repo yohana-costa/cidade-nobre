@@ -1126,3 +1126,9 @@ button.vit-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .card-brick{min-height:200px}
 #card-msg:not(:empty){margin-top:10px;padding:10px 12px;border-radius:var(--r);background:rgba(224,100,90,.12);color:#f0a39c;font-size:13.5px}
 .pay-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}
+
+/* novo pedido do bar pela equipe */
+.bn-cat{margin:16px 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.ped-q button[disabled]{opacity:.35;cursor:default}
+.bn-list .ped-row{display:flex;align-items:center;gap:12px}
+.bn-list .ped-nm{flex:1;min-width:0}

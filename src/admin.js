@@ -444,11 +444,35 @@ function vBarOrders() {
   const tab = UI.boTab === 'done' ? 'done' : 'open';
   const list = tab === 'open' ? open : done;
   return `<div class="bo-wrap">
+    <div class="toolbar"><span class="note">Pedido feito no balcão ou na cadeira? Lance aqui.</span><button class="btn btn-gold btn-sm" data-act="bo-new">${ic('plus')} Novo pedido</button></div>
     <div class="bo-tabs" role="tablist"><button role="tab" class="${tab === 'open' ? 'on' : ''}" aria-selected="${tab === 'open'}" data-act="botab" data-k="open">Em aberto · ${open.length}</button><button role="tab" class="${tab === 'done' ? 'on' : ''}" aria-selected="${tab === 'done'}" data-act="botab" data-k="done">Entregues${done.length ? ' · ' + done.length : ''}</button></div>
     ${list.length ? `<div class="bo-grid">${list.map(barOrder).join('')}</div>`
       : `<div class="empty">${tab === 'open' ? 'Nenhum pedido em aberto. Quando um cliente pedir pelo site, ele aparece aqui com aviso e som.' : 'Nenhum pedido entregue nas últimas 12 horas.'}</div>`}
     <p class="note" style="margin-top:12px">Pedidos pagos no site aparecem como "Pago online"; os que ainda não foram pagos não aparecem. Entregues e cancelados ficam aqui por 12 horas.</p>
   </div>`;
+}
+// pedido lançado pela equipe (igual ao agendamento manual): itens do cardápio, cliente e cadeira
+function vBarNew(L) {
+  const { d: C, wait } = load('cardapio', '/gestao/cardapio');
+  if (!C) return sheet('Novo pedido', '', wait);
+  const q = L.q || {};
+  const items = C.items;
+  const sel = items.filter(i => q[i.id] > 0);
+  const tot = sel.reduce((t, i) => t + i.price * q[i.id], 0), n = sel.reduce((t, i) => t + q[i.id], 0);
+  const pros = DB.pros || [];
+  return sheet('Novo pedido', 'Lançado pela equipe, cobrado na barbearia', `
+    <form class="form" id="bo-form" novalidate>
+      <div class="fld"><label for="bo-name">Cliente</label><input id="bo-name" maxlength="60" value="${esc(L.name || '')}" placeholder="Nome de quem pediu"></div>
+      ${pros.length ? `<div class="fld"><label for="bo-pro">Cadeira (barbeiro)<em>opcional</em></label><select id="bo-pro"><option value="">Sem cadeira</option>${pros.map(p => `<option value="${esc(p.id)}" ${L.proId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>` : ''}
+      <div class="fld"><label for="bo-note">Observação<em>opcional</em></label><input id="bo-note" maxlength="140" value="${esc(L.note || '')}" placeholder="Ex.: sem gelo"></div>
+    </form>
+    ${C.categories.map(c => {
+      const its = items.filter(i => i.cat === c.id);
+      if (!its.length) return '';
+      return `<div class="bn-cat">${esc(c.name)}</div><div class="ped-list bn-list">${its.map(i => `<div class="ped-row"><span class="ped-nm"><b>${esc(i.name)}</b><small>${money(i.price)}${i.visible ? '' : ' · escondido do site'}</small></span><span class="ped-q"><button type="button" data-act="bn-dec" data-id="${i.id}" aria-label="Tirar um" ${q[i.id] ? '' : 'disabled'}>${ic('minus')}</button><b class="tnum">${q[i.id] || 0}</b><button type="button" data-act="bn-inc" data-id="${i.id}" aria-label="Colocar mais um">${ic('plus')}</button></span></div>`).join('')}</div>`;
+    }).join('')}
+    ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}`,
+  `<button class="btn btn-ghost" data-act="close">Cancelar</button><button class="btn btn-gold" data-act="bn-save" ${L.sending || !n ? 'disabled' : ''}>${L.sending ? 'Salvando…' : n ? `Lançar ${n} ${n === 1 ? 'item' : 'itens'} · ${money(tot)}` : 'Escolha os itens'}</button>`);
 }
 function vCardAdmin() {
   const tab = UI.cdTab || 'pedidos';

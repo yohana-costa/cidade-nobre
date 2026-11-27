@@ -60,6 +60,7 @@ function renderLayer() {
   else if (L.kind === 'bar') inner = vBarStatus();
   else if (L.kind === 'prod-view') inner = vProdView(L);
   else if (L.kind === 'pagar') inner = vPagar(L);
+  else if (L.kind === 'bo-new') inner = vBarNew(L);
   else if (L.kind === 'new-appt') inner = vNewAppt(L);
   else if (L.kind === 'draft') inner = vDraftMsg(L.id, L.k);
   else inner = vSheet(L);
@@ -264,6 +265,27 @@ document.addEventListener('click', async e => {
         const c = LAYER && LAYER.pix && LAYER.pix.qrCode; if (!c) break;
         try { await navigator.clipboard.writeText(c); toast('Código Pix copiado. Cole no app do banco.', 'check'); }
         catch (e) { const ta = document.createElement('textarea'); ta.value = c; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Código Pix copiado. Cole no app do banco.', 'check'); } catch (x) { toast('Não foi possível copiar. Leia o QR Code.', 'alert'); } ta.remove(); }
+        break;
+      }
+      // pedido do bar lançado pela equipe
+      case 'bo-new': openLayer({ kind: 'bo-new', q: {}, name: '', proId: '', note: '' }); break;
+      case 'bn-inc': case 'bn-dec': {
+        const L = LAYER; if (!L || L.kind !== 'bo-new') break;
+        L.name = document.getElementById('bo-name')?.value || ''; L.proId = document.getElementById('bo-pro')?.value || ''; L.note = document.getElementById('bo-note')?.value || '';
+        L.q[D.id] = Math.max(0, Math.min(20, (L.q[D.id] || 0) + (act === 'bn-inc' ? 1 : -1))); L.keep = true; L.err = null; renderLayer(); break;
+      }
+      case 'bn-save': {
+        const L = LAYER; if (!L || L.kind !== 'bo-new') break;
+        L.name = (document.getElementById('bo-name')?.value || '').trim(); L.proId = document.getElementById('bo-pro')?.value || ''; L.note = (document.getElementById('bo-note')?.value || '').trim();
+        const items = Object.entries(L.q).filter(([, n]) => n > 0).map(([id, qty]) => ({ id, qty }));
+        if (L.name.length < 2) { L.err = 'Informe o nome do cliente.'; L.keep = true; renderLayer(); document.getElementById('bo-name')?.focus(); break; }
+        L.sending = true; L.err = null; L.keep = true; renderLayer();
+        try {
+          const o = await API.post('/gestao/pedidos-bar', { name: L.name, proId: L.proId || null, note: L.note, items }, 'staff');
+          CACHE['pedidos-bar'] = { data: await API.get('/gestao/pedidos-bar', 'staff'), at: Date.now() };
+          invalidate('contadores'); UI.boTab = 'open'; closeLayer(); render(true);
+          toast(`Pedido nº ${o.number} lançado.`, 'check');
+        } catch (err) { if (LAYER) { LAYER.sending = false; LAYER.err = err.message; renderLayer(); } }
         break;
       }
       case 'bar-open': await loadBar(); openLayer({ kind: 'bar' }); break;
@@ -764,7 +786,7 @@ document.addEventListener('focusout', e => {
   const k = t.id.slice(3), errs = validate(UI.draft), fld = t.closest('.fld');
   if (errs[k] && t.value) { if (!fld.classList.contains('err')) { fld.classList.add('err'); fld.insertAdjacentHTML('beforeend', `<div class="msg">${ic('alert')}${errs[k]}</div>`); } }
 });
-const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]', 'ped-form': '[data-act="cd-send"]', 'pv-form': '[data-act="pv-send"]' };
+const SUBMIT = { 'dados-form': '#confirm-btn', 'pf-form': '[data-act="save-profile"]', 'svc-form': '[data-act="svc-save"]', 'pro-form': '[data-act="pro-save"]', 'entrar-form': '#entrar-form .btn-gold', 'staff-form': '[data-act="login-staff"]', 'na-form': '[data-act="new-appt-save"]', 'cfg-form': '[data-act="cfg-save"]', 'pw-form': '[data-act="pw-save"]', 'user-form': '[data-act="user-add"]', 'cp-form': '[data-act="client-pass-save"]', 'prod-form': '[data-act="prod-save"]', 'stk-form': '[data-act="stk-save"]', 'card-form': '[data-act="card-save"]', 'ped-form': '[data-act="cd-send"]', 'pv-form': '[data-act="pv-send"]', 'bo-form': '[data-act="bn-save"]' };
 document.addEventListener('submit', e => {
   e.preventDefault();
   const sel = SUBMIT[e.target.id];

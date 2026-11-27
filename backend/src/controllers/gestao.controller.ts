@@ -74,4 +74,6 @@ export const moverItemCardapio = h((req) => cardapioSvc.moverItem(req.params.id,
 export const enviarFotoCardapio = h((req) => cardapioSvc.enviarFoto(req.params.id, req.file));
 export const removerFotoCardapio = h((req) => cardapioSvc.tirarFoto(req.params.id));
 export const pedidosBar = h(() => bar.listaGestao());
+// pedido lançado pela equipe no painel (igual ao agendamento manual)
+export const novoPedidoBar = h((req) => bar.criarPedido(req.body, req.ip || 'equipe', null, true), 201);
 export const statusPedidoBar = h((req) => bar.mudarStatus(req.params.id, req.body));

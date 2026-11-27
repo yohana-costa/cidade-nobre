@@ -39,12 +39,13 @@ const novoSchema = z.object({
   items: z.array(z.object({ id: z.string().max(80), qty: z.number().int().min(1).max(20) })).min(1, 'Seu pedido está vazio.').max(30),
 });
 
-export async function criarPedido(body: unknown, ip: string, clienteId: string | null) {
+// equipe = pedido lançado na gestão (balcão): sem pagamento online, cobra na barbearia
+export async function criarPedido(body: unknown, ip: string, clienteId: string | null, equipe = false) {
   const d = novoSchema.parse(body);
   const ids = [...new Set(d.items.map((i) => i.id))];
   // bebida do cardapio ou produto da vitrine (Kauan Cell / produtos da barbearia)
   const [cadastro, produtos] = await Promise.all([
-    prisma.itemCardapio.findMany({ where: { id: { in: ids }, ativo: true, visivel: true } }),
+    prisma.itemCardapio.findMany({ where: { id: { in: ids }, ativo: true, ...(equipe ? {} : { visivel: true }) } }),
     prisma.produto.findMany({ where: { id: { in: ids }, ativo: true, vitrine: { in: ['celular', 'barbearia'] }, precoCentavos: { gt: 0 } } }),
   ]);
   const porId = new Map<string, { nome: string; precoCentavos: number; saldo: number | null }>();
@@ -64,9 +65,9 @@ export async function criarPedido(body: unknown, ip: string, clienteId: string |
     const pro = await prisma.profissional.findFirst({ where: { id: d.proId, ativo: true }, select: { id: true } });
     proId = pro ? pro.id : null;
   }
-  frear(ip);
+  if (!equipe) frear(ip);
   const total = [...qtd].reduce((s, [id, q]) => s + porId.get(id)!.precoCentavos * q, 0);
-  const token = total > 0 ? await mp.tokenDaLoja() : null;
+  const token = !equipe && total > 0 ? await mp.tokenDaLoja() : null;
   if (!token && d.name.length < 2) throw falha(400, 'Informe seu nome para a equipe saber de quem é o pedido.');
   const nome = d.name.length >= 2 ? d.name : SEM_NOME;
   const expiraEm = new Date(Date.now() + config.mercadoPago.prazoPagamentoMin * 60 * 1000);
