@@ -179,7 +179,7 @@ function vProdView(L) {
     ${max <= 3 ? `<p class="note pv-stock">${max === 1 ? 'Última unidade' : `Restam ${max} unidades`}</p>` : ''}
     </div>
     <form class="form" id="pv-form" style="margin-top:10px" novalidate>
-      <div class="fld"><label for="ped-name">Seu nome</label><input id="ped-name" maxlength="60" autocomplete="name" value="${esc(PEDF.name)}" placeholder="Para a equipe saber de quem é"></div>
+      <div class="fld"><label for="ped-name">Seu nome${payOn() ? '<em>opcional</em>' : ''}</label><input id="ped-name" maxlength="60" autocomplete="name" value="${esc(PEDF.name)}" placeholder="Para a equipe saber de quem é"></div>
       ${pros.length ? `<div class="fld"><label for="ped-pro">Quem está te atendendo?<em>opcional</em></label><select id="ped-pro"><option value="">Ainda não sei</option>${pros.map(x => `<option value="${esc(x.id)}" ${PEDF.proId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
       ${L.err ? `<div class="fld err"><div class="msg" role="alert">${ic('alert')}${esc(L.err)}</div></div>` : ''}
     </form>
@@ -205,6 +205,7 @@ function vitBars() {
 const CD_ICON = { drinks: 'glass', cervejas: 'beer', whisky: 'whisky', sem_alcool: 'leaf' };
 const cdPrice = v => Number.isInteger(v) ? 'R$' + v : money(v);
 const PED_KEY = 'cn-pedido-v1';
+let CD_BUYING = null;
 let PED = (() => { try { return JSON.parse(sessionStorage.getItem(PED_KEY)) || {}; } catch (e) { return {}; } })();
 function pedSave() { try { sessionStorage.setItem(PED_KEY, JSON.stringify(PED)); } catch (e) { /* sem armazenamento */ } }
 function pedItems() {
@@ -212,6 +213,8 @@ function pedItems() {
   return Object.entries(PED).map(([id, q]) => ({ it: CARD.items.find(i => i.id === id), q })).filter(x => x.it && x.q > 0);
 }
 function cdBtn(i) {
+  // pagamento online: tocou em Pedir, vai direto para o Mercado Pago com aquele item
+  if (payOn()) return `<button class="cd-btn" data-act="cd-buy" data-id="${i.id}" aria-label="Pedir e pagar ${esc(i.name)}" ${CD_BUYING ? 'disabled' : ''}>${CD_BUYING === i.id ? 'Abrindo…' : 'Pedir'} ${ic('arrow')}</button>`;
   const q = PED[i.id] || 0;
   return `<button class="cd-btn ${q ? 'on' : ''}" data-act="cd-add" data-id="${i.id}" aria-label="Pedir ${esc(i.name)}">${q ? `${q} no pedido` : 'Pedir'} ${ic('plus')}</button>`;
 }
@@ -234,14 +237,14 @@ function vCardapio() {
   <div class="home-bar"><button class="menu-btn" data-act="menu" aria-label="Abrir menu">${ic('menu')}</button></div>
   <section class="cd-hero">
     <div class="cd-hero-bg"><img src="${A.hero_home}" alt="" width="759" height="804"></div>
-    <div class="cd-hero-in"><img class="cd-crest" src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"><h1>Cardápio Premium</h1><p>Drinks e bebidas para pedir durante sua experiência.</p></div>
+    <div class="cd-hero-in"><img class="cd-crest" src="${A.crest}" alt="Cidade Nobre, Barbearia Premium" width="221" height="229"><h1>Cardápio Premium</h1><p>${CARD && CARD.payOnline ? 'Toque em Pedir, pague com Pix ou cartão e a equipe leva até você.' : 'Drinks e bebidas para pedir durante sua experiência.'}</p></div>
   </section>
   <div class="d-page wrap cd-body">
     ${barCard()}
     ${!CARD ? (CARD_ERR ? `<div class="empty">Não foi possível carregar o cardápio. <button class="link" data-act="cd-retry">Tentar de novo</button></div>` : '<div class="empty">Carregando o cardápio…</div>')
       : CARD.items.length ? CARD.categories.map(c => cdSection(c, CARD.items.filter(i => i.cat === c.id))).join('') : '<div class="empty">O cardápio está sendo preparado.</div>'}
   </div>
-  ${n ? `<div class="cd-bar"><button class="cd-bar-in" data-act="cd-open"><span class="cd-bar-n">${n}</span><span>Meu pedido</span><b class="tnum">${money(tot)}</b><span class="cd-bar-go">Ver ${ic('right')}</span></button></div>` : ''}
+  ${n && !payOn() ? `<div class="cd-bar"><button class="cd-bar-in" data-act="cd-open"><span class="cd-bar-n">${n}</span><span>Meu pedido</span><b class="tnum">${money(tot)}</b><span class="cd-bar-go">Ver ${ic('right')}</span></button></div>` : ''}
   </div>`;
 }
 // pedido enviado: a equipe recebe na gestão e o cliente acompanha aqui

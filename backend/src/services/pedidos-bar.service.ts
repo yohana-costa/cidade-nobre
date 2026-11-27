@@ -32,7 +32,8 @@ function frear(ip: string) {
 }
 
 const novoSchema = z.object({
-  name: z.string().trim().min(2, 'Informe seu nome para a equipe saber de quem é o pedido.').max(60),
+  // com pagamento online o nome e opcional (o cliente toca em Pedir e ja vai pagar)
+  name: z.string().trim().max(60).default(''),
   proId: z.string().max(60).optional().nullable(),
   note: z.string().trim().max(140, 'Use até 140 letras na observação.').default(''),
   items: z.array(z.object({ id: z.string().max(80), qty: z.number().int().min(1).max(20) })).min(1, 'Seu pedido está vazio.').max(30),
@@ -66,15 +67,17 @@ export async function criarPedido(body: unknown, ip: string, clienteId: string |
   frear(ip);
   const total = [...qtd].reduce((s, [id, q]) => s + porId.get(id)!.precoCentavos * q, 0);
   const token = total > 0 ? await mp.tokenDaLoja() : null;
+  if (!token && d.name.length < 2) throw falha(400, 'Informe seu nome para a equipe saber de quem é o pedido.');
+  const nome = d.name.length >= 2 ? d.name : SEM_NOME;
   const expiraEm = new Date(Date.now() + config.mercadoPago.prazoPagamentoMin * 60 * 1000);
   const p = await prisma.pedidoBar.create({
-    data: { nome: d.name, profissionalId: proId, observacao: d.note, itens, totalCentavos: total, clienteId, ...(token ? { pagamentoStatus: 'pendente', pagamentoExpiraEm: expiraEm } : {}) },
+    data: { nome, profissionalId: proId, observacao: d.note, itens, totalCentavos: total, clienteId, ...(token ? { pagamentoStatus: 'pendente', pagamentoExpiraEm: expiraEm } : {}) },
   });
   if (!token) return view(p);
   try {
     const c = await mp.criarPreferencia(token, {
       titulo: `Cidade Nobre: pedido nº ${p.numero} (${itens.map((i) => `${i.qty}x ${i.name}`).join(', ')})`,
-      centavos: total, agendamentoId: p.id, expiraEm, nome: d.name,
+      centavos: total, agendamentoId: p.id, expiraEm, nome: d.name.length >= 2 ? d.name : 'Cliente',
       referencia: REF + p.id, volta: `${config.siteUrl}/cardapio?pedido=${p.id}`,
     });
     return view(await prisma.pedidoBar.update({ where: { id: p.id }, data: { pagamentoLink: c.link } }));
@@ -87,6 +90,7 @@ export async function criarPedido(body: unknown, ip: string, clienteId: string |
 
 /* ============ pagamento online do pedido ============ */
 export const REF = 'pedido-';
+const SEM_NOME = 'Cliente do site';
 // chamado pelo aviso do Mercado Pago e pela conciliacao; o pagamento ja veio conferido na API
 export async function aplicarPagamento(p: mp.PagamentoMp) {
   const id = (p.external_reference || '').slice(REF.length);
@@ -97,6 +101,9 @@ export async function aplicarPagamento(p: mp.PagamentoMp) {
       data: { pagamentoStatus: 'pago', pagamentoId: String(p.id), pagoEm: p.date_approved ? new Date(p.date_approved) : new Date(), status: 'novo' },
     });
     if (r.count) console.log(`[pagamento] pedido do bar ${id} pago (pagamento ${p.id})`);
+    // pediu sem nome: usa o nome de quem pagou, quando o Mercado Pago informa
+    const pagador = [p.payer?.first_name, p.payer?.last_name].filter(Boolean).join(' ').trim().slice(0, 60);
+    if (r.count && pagador.length >= 2) await prisma.pedidoBar.updateMany({ where: { id, nome: SEM_NOME }, data: { nome: pagador } });
   } else if (p.status === 'refunded' || p.status === 'charged_back') {
     await prisma.pedidoBar.updateMany({ where: { id, pagamentoId: String(p.id) }, data: { pagamentoStatus: 'estornado' } });
   }

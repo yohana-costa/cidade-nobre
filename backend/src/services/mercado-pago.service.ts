@@ -173,7 +173,7 @@ export async function criarPreferencia(token: string, c: Cobranca) {
   return { preferenciaId: p.id, link: p.init_point };
 }
 
-export interface PagamentoMp { id: number; status: string; external_reference: string | null; transaction_amount: number; date_approved: string | null }
+export interface PagamentoMp { id: number; status: string; external_reference: string | null; transaction_amount: number; date_approved: string | null; payer?: { first_name?: string | null; last_name?: string | null } | null }
 
 export const buscarPagamento = (token: string, id: string) => mp<PagamentoMp>(token, 'GET', `/v1/payments/${encodeURIComponent(id)}`);
 

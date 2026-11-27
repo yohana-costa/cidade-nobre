@@ -220,7 +220,7 @@ document.addEventListener('click', async e => {
       }
       case 'pv-send': {
         const p = vitFind(LAYER.id); if (!p) break;
-        if (!String(PEDF.name || '').trim()) { LAYER.err = 'Informe seu nome para a equipe saber de quem é o pedido.'; LAYER.keep = true; renderLayer(); document.getElementById('ped-name')?.focus(); break; }
+        if (!payOn() && !String(PEDF.name || '').trim()) { LAYER.err = 'Informe seu nome para a equipe saber de quem é o pedido.'; LAYER.keep = true; renderLayer(); document.getElementById('ped-name')?.focus(); break; }
         LAYER.sending = true; LAYER.err = null; LAYER.keep = true; renderLayer();
         try {
           const b = await API.post('/publico/pedidos-bar', { name: PEDF.name, proId: PEDF.proId || null, note: '', items: [{ id: p.id, qty: LAYER.q || 1 }] }, ME ? 'client' : undefined);
@@ -231,6 +231,25 @@ document.addEventListener('click', async e => {
         } catch (err) {
           if (err.status === 409) { VIT = null; await loadVitrine(); render(true); }
           if (LAYER) { LAYER.sending = false; LAYER.err = err.message; renderLayer(); }
+        }
+        break;
+      }
+      // cardápio com pagamento online: um toque e vai para o Mercado Pago
+      case 'cd-buy': {
+        if (CD_BUYING) break;
+        let nome = (ME && ME.client && ME.client.name) || PEDF.name || '';
+        if (!nome) { try { nome = localStorage.getItem(BAR_NAME) || ''; } catch (e) { /* */ } }
+        CD_BUYING = D.id; render(true);
+        try {
+          const b = await API.post('/publico/pedidos-bar', { name: nome, proId: null, note: '', items: [{ id: D.id, qty: 1 }] }, ME ? 'client' : undefined);
+          BAR = b; BAR_ID = b.id;
+          try { sessionStorage.setItem(BAR_KEY, b.id); } catch (e) { /* */ }
+          if (b.payLink) { location.href = b.payLink; break; }
+          CD_BUYING = null; openLayer({ kind: 'bar' }); render(true);
+        } catch (err) {
+          CD_BUYING = null; render(true);
+          if (err.status === 409) { CARD = null; await loadCardapio(); render(true); }
+          toast(err.message, 'alert');
         }
         break;
       }
@@ -801,3 +820,5 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
     catch (e) { if (e.status === 404) { UI.refCode = null; saveUI(); } }
   }
 })();
+// voltou do Mercado Pago pelo botão Voltar (página restaurada do cache): destrava os botões Pedir
+window.addEventListener('pageshow', e => { if (e.persisted && CD_BUYING) { CD_BUYING = null; loadBar().then(() => render(true)); } });
