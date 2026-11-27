@@ -16,6 +16,9 @@ export const vitrine = h(() => vitrineSvc.vitrine());
 export const cardapio = h(() => cardapioSvc.cardapioPublico());
 export const pedirBar = h<AuthRequest>((req) => bar.criarPedido(req.body, req.ip || 'sem-ip', req.clienteId || null), 201);
 export const verPedidoBar = h((req) => bar.verPedido(req.params.id));
+// checkout transparente: Pix (QR Code na tela) e cartao (token do formulario do Mercado Pago)
+export const pixPedidoBar = h((req) => bar.pagarPix(req.params.id, req.body));
+export const cartaoPedidoBar = h((req) => bar.pagarCartao(req.params.id, req.body));
 
 // "ignore" so vale para quem esta logado e e dono do agendamento sendo alterado
 async function ignorarDoCliente(req: AuthRequest) {

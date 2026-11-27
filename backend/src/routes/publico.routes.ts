@@ -9,6 +9,8 @@ router.get('/vitrine', c.vitrine);
 router.get('/cardapio', c.cardapio);
 router.post('/pedidos-bar', clienteOpcional, c.pedirBar);
 router.get('/pedidos-bar/:id', c.verPedidoBar);
+router.post('/pedidos-bar/:id/pix', c.pixPedidoBar);
+router.post('/pedidos-bar/:id/cartao', c.cartaoPedidoBar);
 router.get('/disponibilidade', clienteOpcional, c.disponibilidade);
 router.get('/disponibilidade/horario', clienteOpcional, c.conferirHorario);
 router.get('/indicacao/:codigo', c.indicacao);

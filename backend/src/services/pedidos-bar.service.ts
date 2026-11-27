@@ -74,18 +74,97 @@ export async function criarPedido(body: unknown, ip: string, clienteId: string |
     data: { nome, profissionalId: proId, observacao: d.note, itens, totalCentavos: total, clienteId, ...(token ? { pagamentoStatus: 'pendente', pagamentoExpiraEm: expiraEm } : {}) },
   });
   if (!token) return view(p);
-  try {
-    const c = await mp.criarPreferencia(token, {
-      titulo: `Cidade Nobre: pedido nº ${p.numero} (${itens.map((i) => `${i.qty}x ${i.name}`).join(', ')})`,
-      centavos: total, agendamentoId: p.id, expiraEm, nome: d.name.length >= 2 ? d.name : 'Cliente',
-      referencia: REF + p.id, volta: `${config.siteUrl}/cardapio?pedido=${p.id}`,
-    });
-    return view(await prisma.pedidoBar.update({ where: { id: p.id }, data: { pagamentoLink: c.link } }));
-  } catch (e) {
-    await prisma.pedidoBar.update({ where: { id: p.id }, data: { status: 'cancelado', pagamentoStatus: 'expirado' } });
-    console.error('[pagamento] falha ao criar a cobranca do pedido', p.id, e);
-    throw falha(502, 'Não foi possível gerar o pagamento agora. Tente de novo em instantes.');
+  // checkout transparente: o cliente paga dentro do site (Pix ou cartao), sem ir para o Mercado Pago
+  return { ...view(p), publicKey: await mp.chavePublica() };
+}
+
+/* ============ checkout transparente ============ */
+const CARTAO_RECUSADO: Record<string, string> = {
+  cc_rejected_insufficient_amount: 'Cartão sem limite suficiente. Tente outro cartão ou pague com Pix.',
+  cc_rejected_bad_filled_security_code: 'Código de segurança (CVV) incorreto. Confira e tente de novo.',
+  cc_rejected_bad_filled_date: 'Data de validade incorreta. Confira e tente de novo.',
+  cc_rejected_bad_filled_card_number: 'Número do cartão incorreto. Confira e tente de novo.',
+  cc_rejected_bad_filled_other: 'Algum dado do cartão está incorreto. Confira e tente de novo.',
+  cc_rejected_call_for_authorize: 'O banco pediu autorização para esta compra. Ligue para o banco ou pague com Pix.',
+  cc_rejected_card_disabled: 'Cartão bloqueado ou não habilitado. Ligue para o banco ou pague com Pix.',
+  cc_rejected_duplicated_payment: 'Este pagamento já foi feito. Confira seu pedido.',
+  cc_rejected_high_risk: 'O pagamento foi recusado pela análise de segurança. Tente com Pix.',
+  cc_rejected_max_attempts: 'Muitas tentativas com este cartão. Use outro cartão ou Pix.',
+};
+async function pedidoParaPagar(id: string) {
+  const p = await prisma.pedidoBar.findUnique({ where: { id } });
+  if (!p) throw falha(404, 'Pedido não encontrado.');
+  if (p.pagamentoStatus === 'pago') throw falha(409, 'Este pedido já está pago.');
+  if (p.pagamentoStatus !== 'pendente' || (p.pagamentoExpiraEm && p.pagamentoExpiraEm.getTime() < Date.now())) throw falha(409, 'O prazo para pagar este pedido acabou. Faça o pedido de novo.');
+  const token = await mp.tokenDaLoja();
+  if (!token) throw falha(409, 'O pagamento online está desligado. Pague na barbearia.');
+  return { p, token };
+}
+const titulo = (p: { numero: number; itens: unknown }) => `Cidade Nobre: pedido nº ${p.numero} (${(p.itens as Item[]).map((i) => `${i.qty}x ${i.name}`).join(', ')})`.slice(0, 250);
+const emailPadrao = (n: number) => `cliente.pedido${n}@cidadenobre.com.br`;
+
+// Pix: devolve o QR Code e o copia e cola. Reabrir a tela devolve o mesmo Pix enquanto valer.
+export async function pagarPix(id: string, body: unknown) {
+  const { p, token } = await pedidoParaPagar(id);
+  if (p.pagamentoId && p.pagamentoLink === 'pix') {
+    const atual = await mp.lerPagamento(token, p.pagamentoId);
+    const qr = atual.point_of_interaction?.transaction_data;
+    if (atual.status === 'pending' && qr?.qr_code) return { status: 'pending', qrCode: qr.qr_code, qrImage: qr.qr_code_base64 || null, expiresAt: p.pagamentoExpiraEm?.toISOString() || null };
+    if (atual.status === 'approved') { await aplicarPagamento(atual); return { status: 'approved' }; }
   }
+  const email = z.object({ email: z.string().trim().email().max(120).optional().catch(undefined) }).parse(body || {}).email;
+  const fee = mp.taxaPlataforma(p.totalCentavos);
+  const [nome, ...resto] = (p.nome === SEM_NOME ? 'Cliente' : p.nome).split(/\s+/);
+  const r = await mp.criarPagamento(token, {
+    transaction_amount: p.totalCentavos / 100,
+    description: titulo(p),
+    payment_method_id: 'pix',
+    payer: { email: email || emailPadrao(p.numero), first_name: nome, last_name: resto.join(' ') || undefined },
+    external_reference: REF + p.id,
+    notification_url: `${config.siteUrl}/api/webhook/mercado-pago`,
+    date_of_expiration: mp.dataMp(p.pagamentoExpiraEm || new Date(Date.now() + 30 * 60000)),
+    statement_descriptor: 'CIDADE NOBRE',
+    ...(fee > 0 ? { application_fee: fee } : {}),
+  }, `pix-${p.id}-${Date.now()}`);
+  const qr = r.point_of_interaction?.transaction_data;
+  if (!qr?.qr_code) { console.error('[pagamento] Pix sem QR Code', p.id, r.status, r.status_detail); throw falha(502, 'Não foi possível gerar o Pix agora. Tente de novo em instantes.'); }
+  await prisma.pedidoBar.update({ where: { id: p.id }, data: { pagamentoId: String(r.id), pagamentoLink: 'pix' } });
+  return { status: 'pending', qrCode: qr.qr_code, qrImage: qr.qr_code_base64 || null, expiresAt: p.pagamentoExpiraEm?.toISOString() || null };
+}
+
+// Cartao: o navegador manda o token do cartao gerado pelo formulario do Mercado Pago (os dados do cartao
+// nunca passam pelo nosso servidor). Aprovado na hora vira pago; recusado devolve o motivo.
+const cartaoSchema = z.object({
+  token: z.string().min(8).max(200),
+  payment_method_id: z.string().min(2).max(40),
+  issuer_id: z.union([z.string(), z.number()]).optional().nullable(),
+  installments: z.number().int().min(1).max(12).default(1),
+  payer: z.object({
+    email: z.string().trim().email('Informe um e-mail válido.').max(120),
+    identification: z.object({ type: z.string().max(10), number: z.string().max(20) }).optional().nullable(),
+  }),
+});
+export async function pagarCartao(id: string, body: unknown) {
+  const d = cartaoSchema.parse(body);
+  const { p, token } = await pedidoParaPagar(id);
+  const fee = mp.taxaPlataforma(p.totalCentavos);
+  const r = await mp.criarPagamento(token, {
+    transaction_amount: p.totalCentavos / 100,
+    token: d.token,
+    description: titulo(p),
+    installments: d.installments,
+    payment_method_id: d.payment_method_id,
+    ...(d.issuer_id ? { issuer_id: Number(d.issuer_id) } : {}),
+    payer: { email: d.payer.email, ...(d.payer.identification?.number ? { identification: d.payer.identification } : {}) },
+    external_reference: REF + p.id,
+    notification_url: `${config.siteUrl}/api/webhook/mercado-pago`,
+    statement_descriptor: 'CIDADE NOBRE',
+    binary_mode: true, // aprova ou recusa na hora, sem ficar "em analise"
+    ...(fee > 0 ? { application_fee: fee } : {}),
+  }, `card-${p.id}-${d.token}`);
+  if (r.status === 'approved') { await aplicarPagamento(r); return { status: 'approved', order: await verPedido(id) }; }
+  console.log(`[pagamento] cartao recusado no pedido ${p.id}: ${r.status} ${r.status_detail}`);
+  return { status: r.status, message: CARTAO_RECUSADO[r.status_detail || ''] || 'Pagamento não aprovado. Confira os dados, tente outro cartão ou pague com Pix.' };
 }
 
 /* ============ pagamento online do pedido ============ */
@@ -149,7 +228,7 @@ export async function verPedido(id: string) {
       catch (e) { console.error('[pagamento] falha ao consultar o pedido', id, e); }
     }
   }
-  return view(p);
+  return p.pagamentoStatus === 'pendente' ? { ...view(p), publicKey: await mp.chavePublica() } : view(p);
 }
 
 async function nomesPros() {

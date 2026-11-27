@@ -1109,3 +1109,20 @@ button.vit-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .bo-paid.pend{color:var(--muted);font-weight:500}
 .bo-paid.refund{color:#e0645a}
 .pay-btn{text-decoration:none}
+
+/* pagamento dentro do site (Pix e cartão) */
+.pay-sum{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:10px 12px;border:1px solid var(--gold-dim);border-radius:var(--r);font-size:13px;color:var(--muted)}
+.pay-sum b{margin-left:auto;font-family:var(--serif);font-size:20px;color:var(--cream)}
+.pay-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.pay-tabs .ic{width:16px;height:16px}
+.pix{display:flex;flex-direction:column;align-items:center;gap:12px}
+.pix-qr{width:220px;height:220px;background:#fff;padding:10px;border-radius:12px;image-rendering:pixelated}
+.pix-tip{font-size:13.5px;color:var(--muted);text-align:center;margin:0;line-height:1.5}
+.pix-tip b{color:var(--cream)}
+.pix-copy{width:100%}
+.pix-wait{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gold)}
+.spin{width:14px;height:14px;border:2px solid var(--gold-dim);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.card-brick{min-height:200px}
+#card-msg:not(:empty){margin-top:10px;padding:10px 12px;border-radius:var(--r);background:rgba(224,100,90,.12);color:#f0a39c;font-size:13.5px}
+.pay-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}

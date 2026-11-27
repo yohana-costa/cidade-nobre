@@ -121,10 +121,10 @@ export async function tokenSeCobrarOnline(): Promise<string | null> {
 }
 
 /* ============ API de pagamentos ============ */
-async function mp<T = any>(token: string, metodo: 'GET' | 'POST', caminho: string, body?: unknown): Promise<T> {
+async function mp<T = any>(token: string, metodo: 'GET' | 'POST', caminho: string, body?: unknown, extra?: Record<string, string>): Promise<T> {
   const res = await fetch(`${MP.apiBaseUrl}${caminho}`, {
     method: metodo,
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...(extra || {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const d: any = await res.json().catch(() => ({}));
@@ -181,3 +181,19 @@ export async function pagamentosDaReferencia(token: string, referencia: string) 
   const r = await mp<{ results: PagamentoMp[] }>(token, 'GET', `/v1/payments/search?external_reference=${encodeURIComponent(referencia)}&sort=date_created&criteria=desc&limit=20`);
   return r.results || [];
 }
+
+/* ============ checkout transparente (pagamento dentro do site) ============ */
+// chave publica da conta conectada: o formulario de cartao do Mercado Pago (Card Brick) usa no navegador
+export async function chavePublica() {
+  const c = await prisma.configuracao.findUnique({ where: { id: 1 }, select: { mercadoPagoPublicKey: true, mercadoPagoAccessToken: true } });
+  return c?.mercadoPagoAccessToken ? c.mercadoPagoPublicKey || null : null;
+}
+export interface PagamentoCriado extends PagamentoMp {
+  status_detail?: string;
+  point_of_interaction?: { transaction_data?: { qr_code?: string; qr_code_base64?: string } };
+}
+// POST /v1/payments (Pix ou cartao). A chave de idempotencia evita cobrar duas vezes num reenvio.
+export const criarPagamento = (token: string, body: unknown, idem: string) =>
+  mp<PagamentoCriado>(token, 'POST', '/v1/payments', body, { 'X-Idempotency-Key': idem });
+export const lerPagamento = (token: string, id: string) => mp<PagamentoCriado>(token, 'GET', `/v1/payments/${encodeURIComponent(id)}`);
+export { dataMp };

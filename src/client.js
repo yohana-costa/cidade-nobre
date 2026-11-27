@@ -206,6 +206,8 @@ const CD_ICON = { drinks: 'glass', cervejas: 'beer', whisky: 'whisky', sem_alcoo
 const cdPrice = v => Number.isInteger(v) ? 'R$' + v : money(v);
 const PED_KEY = 'cn-pedido-v1';
 let CD_BUYING = null;
+// pagamento dentro do site: timer de conferência, formulário do cartão montado e SDK do Mercado Pago
+let PAY_TIMER = null, CARD_CTRL = null, MP_SDK = null;
 let PED = (() => { try { return JSON.parse(sessionStorage.getItem(PED_KEY)) || {}; } catch (e) { return {}; } })();
 function pedSave() { try { sessionStorage.setItem(PED_KEY, JSON.stringify(PED)); } catch (e) { /* sem armazenamento */ } }
 function pedItems() {
@@ -284,8 +286,34 @@ function vBarStatus() {
     <div class="ped-list">${BAR.items.map(i => `<div class="ped-row ped-sent"><span class="ped-nm"><b>${i.qty}× ${esc(i.name)}</b><small>${money(i.price)} cada</small></span><span class="ped-v tnum">${money(i.qty * i.price)}</span></div>`).join('')}
     <div class="ped-tot"><span>Total</span><b class="tnum">${money(BAR.total)}</b></div></div>
     <p class="note">${BAR.payStatus === 'pago' ? 'Pago online.' : BAR.payStatus === 'nenhum' ? 'Pagamento na barbearia.' : BAR.payStatus === 'estornado' ? 'Pagamento estornado.' : 'Pix ou cartão, pelo Mercado Pago.'}</p>`,
-  pend ? `<button class="btn btn-ghost" data-act="bar-forget">Desistir</button>${BAR.payLink ? `<a class="btn btn-gold pay-btn" href="${esc(BAR.payLink)}">Pagar agora</a>` : ''}`
+  pend ? `<button class="btn btn-ghost" data-act="bar-forget">Desistir</button><button class="btn btn-gold" data-act="pay-open">Pagar agora</button>`
     : `${!barOpen() ? '<button class="btn btn-ghost" data-act="bar-forget">Fazer outro pedido</button>' : ''}<button class="btn btn-gold" data-act="close">Ok</button>`);
+}
+/* ---------- Pagamento dentro do site (checkout transparente do Mercado Pago) ---------- */
+// Pix: QR Code e copia e cola na própria tela, que confirma sozinha. Cartão: formulário do
+// Mercado Pago embutido (os dados do cartão vão direto para o Mercado Pago, nunca para o nosso servidor).
+function vPagar(L) {
+  if (!BAR) return sheet('Pagamento', '', '<div class="empty">Pedido não encontrado.</div>');
+  const tab = L.tab === 'card' ? 'card' : 'pix';
+  const itens = `<div class="pay-sum">${BAR.items.map(i => `<span>${i.qty}× ${esc(i.name)}</span>`).join('')}<b class="tnum">${money(BAR.total)}</b></div>`;
+  let body;
+  if (tab === 'pix') {
+    if (L.err) body = `<div class="callout">${ic('alert')}<span>${esc(L.err)}</span></div><button class="btn btn-line" data-act="pay-pix" style="width:100%;margin-top:10px">Tentar de novo</button>`;
+    else if (!L.pix) body = '<div class="empty">Gerando o Pix…</div>';
+    else body = `<div class="pix">
+      ${L.pix.qrImage ? `<img class="pix-qr" src="data:image/png;base64,${L.pix.qrImage}" alt="QR Code do Pix" width="220" height="220">` : ''}
+      <p class="pix-tip">Abra o app do banco, escolha <b>Pix</b> e leia o QR Code, ou use o <b>Pix copia e cola</b>.</p>
+      <button class="btn btn-gold pix-copy" data-act="pay-copy">${ic('copy')} Copiar código Pix</button>
+      <div class="pix-wait"><span class="spin"></span>Aguardando o pagamento. Esta tela confirma sozinha.</div>
+      ${L.pix.expiresAt ? `<p class="note" style="text-align:center">O Pix vale até ${new Date(L.pix.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.</p>` : ''}
+    </div>`;
+  } else {
+    body = BAR.publicKey ? `<div id="card-brick" class="card-brick"><div class="empty">Carregando o formulário do cartão…</div></div><div id="card-msg" role="alert"></div>`
+      : '<div class="callout">' + ic('alert') + '<span>Cartão indisponível agora. Pague com Pix.</span></div>';
+  }
+  return sheet(`Pagar pedido nº ${BAR.number}`, 'Pagamento seguro pelo Mercado Pago', `${itens}
+    <div class="seg2 pay-tabs" style="margin:12px 0"><button class="${tab === 'pix' ? 'on' : ''}" data-act="pay-tab" data-k="pix">${ic('qr')} Pix</button><button class="${tab === 'card' ? 'on' : ''}" data-act="pay-tab" data-k="card">${ic('card')} Cartão</button></div>
+    ${body}`, '<button class="btn btn-ghost" data-act="close">Pagar depois</button>');
 }
 function vPedido(L) {
   const list = pedItems();

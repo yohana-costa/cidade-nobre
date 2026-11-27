@@ -42,6 +42,8 @@ function openLayer(l) { LAYER = l; UI.confirmAct = null; renderLayer(); }
 function closeLayer() { LAYER = null; UI.confirmAct = null; renderLayer(); }
 function renderLayer() {
   if (!LAYER) { $layer.innerHTML = ''; $layer.className = ''; document.body.style.overflow = ''; return; }
+  // formulário do cartão montado: não redesenha por cima (apagaria o que o cliente digitou)
+  if (LAYER.kind === 'pagar' && LAYER.tab === 'card' && CARD_CTRL && $layer.querySelector('#card-brick')) return;
   let inner = '';
   const L = LAYER;
   if (L.kind === 'menu') inner = vMenu();
@@ -57,6 +59,7 @@ function renderLayer() {
   else if (L.kind === 'pedido') inner = vPedido(L);
   else if (L.kind === 'bar') inner = vBarStatus();
   else if (L.kind === 'prod-view') inner = vProdView(L);
+  else if (L.kind === 'pagar') inner = vPagar(L);
   else if (L.kind === 'new-appt') inner = vNewAppt(L);
   else if (L.kind === 'draft') inner = vDraftMsg(L.id, L.k);
   else inner = vSheet(L);
@@ -204,7 +207,7 @@ document.addEventListener('click', async e => {
           BAR = b; BAR_ID = b.id;
           try { sessionStorage.setItem(BAR_KEY, b.id); localStorage.setItem(BAR_NAME, PEDF.name); } catch (e) { /* */ }
           PED = {}; pedSave(); PEDF.note = '';
-          if (b.payLink) { toast('Abrindo o pagamento…', 'clock'); location.href = b.payLink; break; }
+          if (b.payStatus === 'pendente') { render(true); payOpen(); break; }
           openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
         } catch (err) {
           if (err.status === 409) { CARD = null; await loadCardapio(); }
@@ -226,7 +229,7 @@ document.addEventListener('click', async e => {
           const b = await API.post('/publico/pedidos-bar', { name: PEDF.name, proId: PEDF.proId || null, note: '', items: [{ id: p.id, qty: LAYER.q || 1 }] }, ME ? 'client' : undefined);
           BAR = b; BAR_ID = b.id;
           try { sessionStorage.setItem(BAR_KEY, b.id); localStorage.setItem(BAR_NAME, PEDF.name); } catch (e) { /* */ }
-          if (b.payLink) { toast('Abrindo o pagamento…', 'clock'); location.href = b.payLink; break; }
+          if (b.payStatus === 'pendente') { render(true); payOpen(); break; }
           openLayer({ kind: 'bar' }); render(true); toast(`Pedido nº ${b.number} enviado. A equipe já recebeu.`, 'check');
         } catch (err) {
           if (err.status === 409) { VIT = null; await loadVitrine(); render(true); }
@@ -244,13 +247,23 @@ document.addEventListener('click', async e => {
           const b = await API.post('/publico/pedidos-bar', { name: nome, proId: null, note: '', items: [{ id: D.id, qty: 1 }] }, ME ? 'client' : undefined);
           BAR = b; BAR_ID = b.id;
           try { sessionStorage.setItem(BAR_KEY, b.id); } catch (e) { /* */ }
-          if (b.payLink) { location.href = b.payLink; break; }
+          if (b.payStatus === 'pendente') { CD_BUYING = null; render(true); payOpen(); break; }
           CD_BUYING = null; openLayer({ kind: 'bar' }); render(true);
         } catch (err) {
           CD_BUYING = null; render(true);
           if (err.status === 409) { CARD = null; await loadCardapio(); render(true); }
           toast(err.message, 'alert');
         }
+        break;
+      }
+      // pagamento dentro do site
+      case 'pay-open': payOpen(); break;
+      case 'pay-tab': if (LAYER && LAYER.kind === 'pagar' && LAYER.tab !== D.k) { LAYER.tab = D.k; LAYER.keep = true; renderLayer(); if (D.k === 'card') mountCard(); else { unmountCard(); if (!LAYER.pix) payPix(); } } break;
+      case 'pay-pix': if (LAYER) { LAYER.err = null; renderLayer(); payPix(); } break;
+      case 'pay-copy': {
+        const c = LAYER && LAYER.pix && LAYER.pix.qrCode; if (!c) break;
+        try { await navigator.clipboard.writeText(c); toast('Código Pix copiado. Cole no app do banco.', 'check'); }
+        catch (e) { const ta = document.createElement('textarea'); ta.value = c; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Código Pix copiado. Cole no app do banco.', 'check'); } catch (x) { toast('Não foi possível copiar. Leia o QR Code.', 'alert'); } ta.remove(); }
         break;
       }
       case 'bar-open': await loadBar(); openLayer({ kind: 'bar' }); break;
@@ -822,3 +835,72 @@ document.addEventListener('pointerleave', () => { $tip.style.display = 'none'; }
 })();
 // voltou do Mercado Pago pelo botão Voltar (página restaurada do cache): destrava os botões Pedir
 window.addEventListener('pageshow', e => { if (e.persisted && CD_BUYING) { CD_BUYING = null; loadBar().then(() => render(true)); } });
+
+/* ---------- pagamento dentro do site ---------- */
+function payOpen() {
+  if (!BAR) return;
+  openLayer({ kind: 'pagar', tab: 'pix', pix: null, keep: true });
+  payPix();
+  clearInterval(PAY_TIMER);
+  // confere a cada 4 s se o pagamento caiu
+  PAY_TIMER = setInterval(async () => {
+    if (!LAYER || LAYER.kind !== 'pagar') { clearInterval(PAY_TIMER); unmountCard(); return; }
+    await loadBar();
+    if (BAR && BAR.payStatus === 'pago') payDone();
+    else if (BAR && BAR.payStatus === 'expirado') { clearInterval(PAY_TIMER); unmountCard(); openLayer({ kind: 'bar' }); render(true); }
+  }, 4000);
+}
+function payDone() {
+  clearInterval(PAY_TIMER); unmountCard();
+  openLayer({ kind: 'bar' }); render(true);
+  toast(`Pagamento aprovado. Pedido nº ${BAR.number} enviado para a equipe.`, 'check');
+}
+async function payPix() {
+  const id = BAR && BAR.id; if (!id) return;
+  try {
+    const r = await API.post(`/publico/pedidos-bar/${encodeURIComponent(id)}/pix`, {});
+    if (r.status === 'approved') { await loadBar(); return payDone(); }
+    if (LAYER && LAYER.kind === 'pagar') { LAYER.pix = r; if (LAYER.tab === 'pix') renderLayer(); }
+  } catch (err) {
+    if (LAYER && LAYER.kind === 'pagar') { LAYER.err = err.message; if (LAYER.tab === 'pix') renderLayer(); }
+  }
+}
+function loadMpSdk() {
+  if (window.MercadoPago) return Promise.resolve();
+  if (MP_SDK) return MP_SDK;
+  MP_SDK = new Promise((ok, fail) => {
+    const s = document.createElement('script'); s.src = 'https://sdk.mercadopago.com/js/v2'; s.async = true;
+    s.onload = () => ok(); s.onerror = () => { MP_SDK = null; fail(new Error('Não foi possível carregar o formulário do cartão. Verifique a internet ou pague com Pix.')); };
+    document.head.appendChild(s);
+  });
+  return MP_SDK;
+}
+function unmountCard() { try { if (CARD_CTRL) CARD_CTRL.unmount(); } catch (e) { /* */ } CARD_CTRL = null; }
+async function mountCard() {
+  const box = document.getElementById('card-brick'); if (!box || !BAR || !BAR.publicKey) return;
+  const msg = t => { const m = document.getElementById('card-msg'); if (m) m.textContent = t || ''; };
+  unmountCard();
+  try {
+    await loadMpSdk();
+    if (!document.getElementById('card-brick')) return;
+    box.innerHTML = '';
+    const mpj = new window.MercadoPago(BAR.publicKey, { locale: 'pt-BR' });
+    CARD_CTRL = await mpj.bricks().create('cardPayment', 'card-brick', {
+      initialization: { amount: BAR.total },
+      customization: { visual: { style: { theme: 'dark' } }, paymentMethods: { maxInstallments: 1 } },
+      callbacks: {
+        onReady: () => {},
+        onError: e => { console.error('[cartao]', e); },
+        onSubmit: data => new Promise((ok, fail) => {
+          msg('');
+          API.post(`/publico/pedidos-bar/${encodeURIComponent(BAR.id)}/cartao`, data)
+            .then(r => {
+              if (r.status === 'approved') { if (r.order) BAR = r.order; ok(); payDone(); }
+              else { msg(r.message); fail(); }
+            })
+            .catch(err => { msg(err.message); fail(); });
+        }),
+      },
+    });
+  } catch (err) { msg(err.message || 'Não foi possível abrir o cartão. Pague com Pix.'); }
+}
